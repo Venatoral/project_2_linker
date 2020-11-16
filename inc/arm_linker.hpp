@@ -103,24 +103,23 @@ struct SymLink {
 
 class Linker
 {
-    vector<string> segNames; //链接关心的段
-    ElfFile exe;            //链接后的输出文件
-    ElfFile *startOwner;    //拥有全局符号START/_start的文件
+    vector<string> seg_names_; //链接关心的段
+    ElfFile elf_exe_;            //链接后的输出文件
+    ElfFile *start_owner_;    //拥有全局符号START/_start的文件
 public:
     vector<ElfFile *> elfs;                           //所有目标文件对象
-    map<string, SegList*> segLists; //所有合并段表序列
-    vector<SymLink *> symLinks;                        //所有符号引用信息，符号解析前存储未定义的符号prov字段为NULL
-    vector<SymLink *> symDef;                          //所有符号定义信息recv字段NULL时标示该符号没有被任何文件引用，否则指向本身（同prov）
+    map<string, SegList*> seg_lists_; //所有合并段表序列
+    vector<SymLink *> sym_links_;                        //所有符号引用信息，符号解析前存储未定义的符号prov字段为NULL
+    vector<SymLink *> sym_def_;                          //所有符号定义信息recv字段NULL时标示该符号没有被任何文件引用，否则指向本身（同prov）
 public:
     Linker();
     void addElf(const char *dir);    //添加一个目标文件
     void collectInfo();              //搜集段信息和符号关联信息
-    bool symValid();                 //符号关联验证，分析符号间的关联（定义和引用），全局符号位置，出现非法符号逻辑返回false
     void allocAddr();                //分配地址空间[重新计算虚拟地址空间，磁盘空间连续分布不重新计算]，其他的段全部删除
-    void symParser();                //符号解析，原地计算定义和未定义的符号虚拟地址
+    void parseSym();                //符号解析，原地计算定义和未定义的符号虚拟地址
     void relocate();                 //符号重定位，根据所有目标文件的重定位项修正符号地址
-    void assemExe();                 //组装可执行文件
-    void exportElf(const char *dir); //输出elf
+    void makeExec();                 //组装可执行文件
+    void writeExecFile(const char *dir); //输出elf
     bool link(const char *dir);      //链接
     ~Linker();
 };
