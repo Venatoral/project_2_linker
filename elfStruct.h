@@ -56,21 +56,32 @@ typedef struct{
 
 /*TODO yrc struct*/
 typedef struct{
-    //TODO
+    int type;     //区分是函数还是全局变量, -1表示NOTYPE(未定义) 0表示函数, 1表示全局变量, 2表示标号
+    bool defined; //判断该符号是否在此文件中定义过
+    string name;  //符号名称
+    int value;    //如果是文件中定义的函数 或 标号 会记录函数定义的位置和标号的位置 如果是全局变量在data段中的偏移
+    int bind;     //判断符号的作用域是global还是local   0表示global 1表示local
 }symbols;
 
 typedef struct{
-    //TODO
+    int type;    //需要重定位的是函数还是全局变量
+    string name; //符号名称
+    int value;    //需要重定位的地方在.text中的偏移
 }reloc_symbol;
 
 typedef struct{
-    //TODO
+    string op_name; //操作符名称 "mov" "ldr" "str"等
+    string Operands1;   //操作数
+    string Operands2;
+    string Operands3;
+    vector<string> reglist; //如果操作符是push或pop  需要一个寄存器列表
 }arm_assem;
 
 typedef struct{
-    //TODO
+    string op_name; //数据声明语句 .word或.space
+    int value;      //声明数据的值
 }data_element;
 
 typedef struct{
-    //TODO
+    string name;    //未定义的变量的名称
 }bss_element;
