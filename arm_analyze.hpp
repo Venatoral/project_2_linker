@@ -183,6 +183,69 @@ void ARM_analyze::_type_handler(string arm)
  * */
 void ARM_analyze::_label_handler(string arm)
 {
+	
+    if(arm.find(".")!=string::npos){
+        int front=0;
+        int end=arm.find(":");
+        string n=arm.substr(front,end);
+
+        symbols *a=new symbols();
+        a->defined=true;
+        a->value=offset_text;
+        a->type=2;
+        a->name=n;
+        symbol_list.push_back(a);
+        return;
+
+    }
+    if (is_in_text==true){//判断进入了text，说明是函数
+        int front=0;
+        int end=arm.find(":");
+        string n=arm.substr(front,end);//找到函数名
+        int i = 0;
+
+        for (; i < symbol_list.size(); i++)
+        {
+            symbols * b= symbol_list[i];
+            if(n==b->name)
+                break;
+        }//寻找等于此符号名的symbol
+
+        if(i<symbol_list.size())//找到了
+            symbol_list[i]->defined=true;//直接改
+
+
+        if(i==symbol_list.size())//没找到，新建插入
+        {
+            int front=0;
+            int end=arm.find(":");
+            string n=arm.substr(front,end);
+
+            symbols *a=new symbols();
+            a->defined=true;
+            a->value=offset_text;
+            a->type=0;
+            a->name=n;
+            symbol_list.push_back(a);
+
+
+        }
+
+    }
+    else if  (is_in_text==false){//全局变量，直接插入
+        int front=0;
+        int end=arm.find(":");
+        string n=arm.substr(front,end);
+
+        symbols *a=new symbols();
+        a->defined=true;
+        a->value=offset_data;
+        a->type=1;
+        a->name=n;
+        symbol_list.push_back(a);
+
+
+    }
 }
 
 /**
