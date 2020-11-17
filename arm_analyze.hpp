@@ -1,3 +1,6 @@
+#ifndef ARM_ANALYZE_HPP
+#define ARM_ANALYZE_HPP
+
 #include <cstdio>
 #include <vector>
 #include <string>
@@ -229,3 +232,5 @@ void ARM_analyze::_instruction_handler(string arm)
     //TODO将相关信息加入列表
 
 }
+
+#endif
