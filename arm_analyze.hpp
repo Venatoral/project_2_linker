@@ -152,6 +152,30 @@ void ARM_analyze::arm_handler(string arm)
  * */
 void ARM_analyze::_globl_handler(string arm)
 {
+    symbols *a = new symbols();
+    int front = 0, end = 0;
+    front = arm.find(" ") + 1;
+    end = arm.length();
+    string n = arm.substr(front, end);
+
+    if (is_in_text)
+    { //函数
+        a->type = 0;
+        a->defined = false; //?
+        a->name = n;
+        a->value = offset_text;
+        a->bind = 0;
+    }
+    else
+    {
+        a->type = 1;
+        a->defined = false; //?
+        a->name = n;
+        a->value = offset_data;
+        a->bind = 0;
+    }
+
+    symbol_list.push_back(a);
 }
 
 /**
@@ -183,68 +207,64 @@ void ARM_analyze::_type_handler(string arm)
  * */
 void ARM_analyze::_label_handler(string arm)
 {
-	
-    if(arm.find(".")!=string::npos){
-        int front=0;
-        int end=arm.find(":");
-        string n=arm.substr(front,end);
 
-        symbols *a=new symbols();
-        a->defined=true;
-        a->value=offset_text;
-        a->type=2;
-        a->name=n;
+    if (arm.find(".") != string::npos)
+    {
+        int front = 0;
+        int end = arm.find(":");
+        string n = arm.substr(front, end);
+
+        symbols *a = new symbols();
+        a->defined = true;
+        a->value = offset_text;
+        a->type = 2;
+        a->name = n;
         symbol_list.push_back(a);
         return;
-
     }
-    if (is_in_text==true){//判断进入了text，说明是函数
-        int front=0;
-        int end=arm.find(":");
-        string n=arm.substr(front,end);//找到函数名
+    if (is_in_text == true)
+    { //判断进入了text，说明是函数
+        int front = 0;
+        int end = arm.find(":");
+        string n = arm.substr(front, end); //找到函数名
         int i = 0;
 
         for (; i < symbol_list.size(); i++)
         {
-            symbols * b= symbol_list[i];
-            if(n==b->name)
+            symbols *b = symbol_list[i];
+            if (n == b->name)
                 break;
-        }//寻找等于此符号名的symbol
+        } //寻找等于此符号名的symbol
 
-        if(i<symbol_list.size())//找到了
-            symbol_list[i]->defined=true;//直接改
+        if (i < symbol_list.size())         //找到了
+            symbol_list[i]->defined = true; //直接改
 
-
-        if(i==symbol_list.size())//没找到，新建插入
+        if (i == symbol_list.size()) //没找到，新建插入
         {
-            int front=0;
-            int end=arm.find(":");
-            string n=arm.substr(front,end);
+            int front = 0;
+            int end = arm.find(":");
+            string n = arm.substr(front, end);
 
-            symbols *a=new symbols();
-            a->defined=true;
-            a->value=offset_text;
-            a->type=0;
-            a->name=n;
+            symbols *a = new symbols();
+            a->defined = true;
+            a->value = offset_text;
+            a->type = 0;
+            a->name = n;
             symbol_list.push_back(a);
-
-
         }
-
     }
-    else if  (is_in_text==false){//全局变量，直接插入
-        int front=0;
-        int end=arm.find(":");
-        string n=arm.substr(front,end);
+    else if (is_in_text == false)
+    { //全局变量，直接插入
+        int front = 0;
+        int end = arm.find(":");
+        string n = arm.substr(front, end);
 
-        symbols *a=new symbols();
-        a->defined=true;
-        a->value=offset_data;
-        a->type=1;
-        a->name=n;
+        symbols *a = new symbols();
+        a->defined = true;
+        a->value = offset_data;
+        a->type = 1;
+        a->name = n;
         symbol_list.push_back(a);
-
-
     }
 }
 
@@ -293,7 +313,6 @@ void ARM_analyze::_instruction_handler(string arm)
     //TODO如果操作数里发现'=' 或操作符里存在跳转 做特殊处理
 
     //TODO将相关信息加入列表
-
 }
 
 #endif
