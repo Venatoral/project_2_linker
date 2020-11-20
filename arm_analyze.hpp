@@ -275,8 +275,23 @@ void ARM_analyze::_label_handler(string arm)
    这里假定我们在之前生成的代码里.text段里没有.word和.space 这种数据声明语句只存在data段中
    根据数据大小移动offset_data,然后根据相应语句和数据生成data_element并加入data_element_list 比如(.word 4   data_element->op_name="word", data_element->value=4)
  * */
-void ARM_analyze::_data_handler(string arm)
-{
+void ARM_analyze::_data_handler(string data_inst) {
+    data_element* d = new data_element();
+    string op_name;
+    int value;
+    // 按空格分成 .word 和 400 两部分
+    int split_ndx = 0;
+    split_ndx = data_inst.find(' ');
+    if(split_ndx == string::npos) {
+        fprintf(stderr, "[data_handler]: invalid instruction!\n");
+        exit(EXIT_FAILURE);
+    }
+    op_name = data_inst.substr(0, split_ndx);
+    value = atoi(data_inst.substr(split_ndx).c_str());
+    d->op_name = op_name;
+    d->value = value;
+    // 加入data组中
+    data_element_list.push_back(d);
 }
 
 /**
