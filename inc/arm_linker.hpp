@@ -101,8 +101,7 @@ struct SymLink {
     ElfFile* recv_;
 };
 
-class Linker
-{
+class Linker {
     vector<string> seg_names_; //链接关心的段
     ElfFile elf_exe_;            //链接后的输出文件
     ElfFile *start_owner_;    //拥有全局符号START/_start的文件
