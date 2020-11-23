@@ -6,6 +6,7 @@
 #include <string>
 #include <cstdlib>
 #include <iostream>
+#include <map>
 #include "elfStruct.h"
 using namespace std;
 
@@ -184,9 +185,46 @@ void ARM_analyze::_globl_handler(string arm)
  * //TODO
  * 根据name在symbol_list中查找对应符号（通常在链表的结尾，可以从后往前查找），将其中的type改为%type对应的值, 没找到的话创建一个Symbols并初始化，
  * */
+#define NOTYPE -1
+#define FUNCTION 0
+#define GLOBAL_VAR 1
+#define LABLE 2
+#define PREFIX_LEN 6 
+//此处PREFIX_LEN 是指.type'\t'总共加起来的语句前缀长度
 void ARM_analyze::_type_handler(string arm)
 {
+    static map<string, int> typeHandleMap = {
+        {"function", FUNCTION},
+        {"object", GLOBAL_VAR},
+    };
+    string name = "";
+    for (auto ch : arm.substr(PREFIX_LEN))
+        if ((ch <= 'z' && ch >= 'a') || (ch <= 'Z' && ch >= 'A') || (ch <= '9' && ch >= '0') || ch == '_')
+            name += ch;
+        else
+            break;
+    string type = arm.substr(arm.find_first_of('%') + 1);
+    bool isFind = false;
+    for (auto symbol : ARM_analyze::symbol_list)
+        if (symbol->name == name)
+        {
+            symbol->type = typeHandleMap[type];
+            isFind = true;
+            return;
+        }
+    if (!isFind)
+    {
+        symbols *newSym = new symbols();
+        newSym->type = typeHandleMap[type];
+        newSym->name = name;
+        ARM_analyze::symbol_list.emplace_back(newSym);
+    }
 }
+#undef FUNCTION
+#undef GLOBAL_VAR
+#undef NOTYPE
+#undef LABLE
+#undef PREFIX_LEN
 
 /**
  * Author: nzb
@@ -275,14 +313,16 @@ void ARM_analyze::_label_handler(string arm)
    这里假定我们在之前生成的代码里.text段里没有.word和.space 这种数据声明语句只存在data段中
    根据数据大小移动offset_data,然后根据相应语句和数据生成data_element并加入data_element_list 比如(.word 4   data_element->op_name="word", data_element->value=4)
  * */
-void ARM_analyze::_data_handler(string data_inst) {
-    data_element* d = new data_element();
+void ARM_analyze::_data_handler(string data_inst)
+{
+    data_element *d = new data_element();
     string op_name;
     int value;
     // 按空格分成 .word 和 400 两部分
     int split_ndx = 0;
     split_ndx = data_inst.find(' ');
-    if(split_ndx == string::npos) {
+    if (split_ndx == string::npos)
+    {
         fprintf(stderr, "[data_handler]: invalid instruction!\n");
         exit(EXIT_FAILURE);
     }
