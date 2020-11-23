@@ -22,25 +22,32 @@ class RelocatableFile{
     Elf32_Half cur_sec_no=0;//记录现在是第几个节区 0号节区有留空规则 每生成一个节区记得自增
 
     //生成.o文件使用的函数列表
+    
     void genSectionNote();//生成一些无关紧要or内容固定的节区or第0号节区
 
+    //tlx
     void genSectionBss();//生成特殊节区-未初始化数据（初始化为0 不占用文件空间）--给这个函数写了个示意可以参考看看
     void genSectionData();//生成特殊节区-已初始化数据
     void genSectionRodata();//生成特殊节区-只读数据（如printf函数里面的格式控制字符串）
 
+    //yrc
     void genSectionText();//生成特殊节区-可执行代码
+    
+    //nzb
     void genSectionReloc();//生成特殊节区-重定位表
 
+    //zyj
     void genSectionSymtab();//生成特殊节区-符号表
     void genSectionStrtab();//生成特殊节区-符号名字表
 
+    
+    //lt
     void genSectionShstrtab();//生成特殊节区-节区名字表
-
     void genShdrList();//生成节区头部列表
     void genElfHeader();//生成elf文件头
 
+    //ml
     void genFile();//输出到文件
-
     void freeMalloc();//释放掉malloc的内存（在生成阶段，节区内容是malloc申请内存的，所以传出char *指针）
 };
 
