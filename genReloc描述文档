@@ -1,0 +1,18 @@
+1.SectionInfo结构
+typedef struct{
+    Elf32_Half no;//该节区的序号
+    string name;//该节区的名字
+    Elf32_Word size;//该节区内容的长度(Byte)
+    char *content;//该节区的内容 字符串首地址
+}SectionInfo;
+生成每个特殊节区时，应该new一个该结构，并且填写里面的所有成员。
+在填写完成后，应该使用section_info_list.push_back();
+节区序号使用cur_sec_no，用完记得++
+节区名字就是节区的名字，记得带.
+填size和content的时候可以参考看看genSectionBss是怎么实现的
+
+
+2.全局的一些数据结构
+vector<SectionInfo> section_info_list;//节区列表（每个元素包含一个节区的信息，其中char *content是节区内容，应写入elf文件中）
+vector<Elf32_Shdr> shdr_list;//节区头部列表 即elf文件中节区头部的信息组成的vector（一个节区头部为一个元素，应写入elf文件中）
+Elf32_Ehdr elf_header;//elf文件头 即elf文件中的elf头，应写入elf文件中
