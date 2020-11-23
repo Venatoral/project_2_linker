@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <vector>
 #include <string>
+#include <cstring>
 #include <cstdlib>
 #include "elfstruct.h"
 using namespace std;
@@ -14,8 +15,8 @@ class RelocatableFile{
     vector<bss_element*> bss_element_list;//bss段变量名称和值
 
     //生成的结构
-    vector<SectionInfo> section_info_list;//节区列表
-    vector<Elf32_Shdr> shdr_list;//节区头部列表
+    vector<SectionInfo*> section_info_list;//节区列表
+    vector<Elf32_Shdr*> shdr_list;//节区头部列表
     Elf32_Ehdr elf_header;//elf文件头
 
     //生成的过程中需要用到的变量
@@ -67,15 +68,15 @@ void RelocatableFile::genSectionBss(){
     SectionBss x;
     Elf32_Word sz=0;//x的大小
 
-    SectionInfo bss;
-    bss.no=cur_sec_no++;
-    bss.name=".bss";
+    SectionInfo* bss=new SectionInfo();
+    bss->no=cur_sec_no++;
+    bss->name=".bss";
 
     {
         //TODO 根据bss_element_list生成节区内容存到[X]里
         //TODO 存内容的时候维护sz
-        bss.size=(Elf32_Word)sz;
-        bss.content=(char *)malloc((size_t)bss.size);
+        bss->size=(Elf32_Word)sz;
+        bss->content=(char *)malloc((size_t)bss->size);
         //TODO 把数据结构的内容写到连续内存空间里
     }
 }
@@ -118,20 +119,41 @@ void RelocatableFile::genSectionStrtab(){
     //output: section_info_list.push_back(xxx);
 }
 
-
+//lt
 void RelocatableFile::genSectionShstrtab(){
     //生成特殊节区-节区名字表
     //input: section_info_list,this
     //output: section_info_list.push_back(xxx);
+    SectionInfo *shstrtab=new SectionInfo();
+    shstrtab->no=cur_sec_no;
+    cur_sec_no++;
+    shstrtab->name=".shstrtab";
+    shstrtab->size=0;
+    shstrtab->content=NULL;
+    section_info_list.push_back(shstrtab);
+
+    //计算节区大小
+    for(int i=0;i<cur_sec_no;i++){
+        shstrtab->size+=section_info_list[i]->name.length();
+    }
+    shstrtab->content=(char *)malloc(shstrtab->size);
+
+    //填入节区内容
+    for(int i=0,off=0;i<cur_sec_no;i++){
+        off+=section_info_list[i]->name.length();
+        strncpy(shstrtab->content+off,section_info_list[i]->name,section_info_list[i]->name.length());
+    }
+    //之前已经push_back了
 }
 
-
+//lt
 void RelocatableFile::genShdrList(){
     //生成节区头部列表
     //input: section_info_list
     //output: shdr_list
 }
 
+//lt
 void RelocatableFile::genElfHeader(){
     //生成elf文件头
     //input: section_info_list,shdr_list
