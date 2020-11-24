@@ -356,13 +356,182 @@ void ARM_analyze::_data_handler(string data_inst)
 	留空语句其实就是	.word	0x00000000
 	将转换后的语句和留空语句分别创建arm_assem后加入arm_assem_list
  * */
+/*
+    附注：
+    输入的 R/r 不区分大小写，不保证输出的 R/r 的大小写统一
+    push/pop 指令只支持形如 push {r1, r2, r5} 和 push {r1, r2, r5, r8} 的语句
+    mov/cmp 只支持 mov/cmp r2,r4 和 mov/cmp r1, #100
+    ldr/str 支持 ldr/str r1, [r2] 和 ldr/str r1, [r2, #8]
+        ldr 还支持 ldr r4, =var, 实现方式如上所示
+*/
 void ARM_analyze::_instruction_handler(string arm)
 {
-    //拆分得到操作符
+    //TODO 代码实在太丑，没有可读性，有机会重构一下，提取函数
+    
+    offset_text += 4;
+    
+    // get operater
     int index1 = arm.find("\t");
     int index2 = arm.find(" ");
     string opera = arm.substr(index1 + 1, index2 - 1);
 
+    arm_assem *arm_asm = new arm_assem();
+
+    arm_asm->op_name = opera;
+
+    if(opera == "pop" || opera == "push")
+    {
+        int ptr = arm.find("{") + 1;
+        if(arm.find("-") != arm.npos)
+        {
+            while(arm[ptr] != 'r' && arm[ptr] != 'R')
+                ++ptr;
+            
+            int first_reg = arm[++ptr] - '0';
+            ++ptr;
+            if(arm[ptr] >= '0' && arm[ptr] <= '9')
+                first_reg = first_reg * 10 + (arm[ptr] - '0');
+            
+            while(arm[ptr] != 'r' && arm[ptr] != 'R')
+                ++ptr;
+            
+            int last_reg = arm[++ptr] - '0';
+            ++ptr;
+            if(arm[ptr] >= '0' && arm[ptr] <= '9')
+                last_reg = last_reg * 10 + (arm[ptr] - '0');
+            
+            for(int i = first_reg; i <= last_reg; i++)
+            {
+                string reg = "r";
+                reg.push_back((char)(i + '0'));
+                arm_asm->reglist.push_back(reg);
+            }
+        }
+        else
+        {
+            int ptr = arm.find("{") + 1;
+            for(; arm[ptr] != '}'; ptr++)
+            {
+                if(arm[ptr] == 'r' || arm[ptr] == 'R')
+                {
+                    int len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
+                    string reg = arm.substr(ptr, len);
+                    arm_asm->reglist.push_back(reg);
+                }
+            }
+        }
+    }
+    else if(opera == "mov" || opera == "cmp")
+    {
+        // find op1
+        int ptr = index2;
+        while(arm[ptr] != 'R' && arm[ptr] != 'r')
+            ptr++;
+        int len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
+        arm_asm->Operands1 = arm.substr(ptr, len);
+
+        // find op2
+        while(arm[ptr] != ',')
+            ptr++;
+        ptr++;
+        while(arm[ptr] == ' ')
+            ptr++;
+        if(arm[ptr] == 'r' || arm[ptr] == 'R') // e.g. mov r1,r2
+        {
+            len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
+            arm_asm->Operands2 = arm.substr(ptr, len);
+        }
+        else if(arm[ptr] == '#') //e.g. mov r1, #100
+        {
+            ptr++;
+            for(int i = 0; ; i++)
+                if(arm[i + ptr] < '0' || arm[i + ptr] > '9')
+                {
+                    len = i;
+                    break;
+                }
+            arm_asm->Operands2 = arm.substr(ptr, len);
+        }
+    }
+    else if(opera == "ldr" || opera == "str")
+    {
+        // find op1
+        int ptr = index2;
+        while(arm[ptr] != 'R' && arm[ptr] != 'r')
+            ptr++;
+        int len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
+        arm_asm->Operands1 = arm.substr(ptr, len);
+
+        // find op2
+        if(arm.find('=') == arm.npos) // ldr r1, [r2(, #100)]
+        {
+            while(arm[ptr] != '[')
+                ptr++;
+            ptr++;
+            len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
+            arm_asm->Operands2 = arm.substr(ptr, len);
+
+            // find op3 if exist
+            while(arm[ptr] != ']')
+            {
+                if(arm[ptr] == '#')
+                {
+                    ptr++;
+                    if(arm[ptr] == '-')
+                    {
+                        arm_asm->Operands3 = "-";
+                        ptr++;
+                    }   
+                    for(int i = 0; ; i++)
+                    if(arm[i + ptr] < '0' || arm[i + ptr] > '9')
+                    {
+                        len = i;
+                        break;
+                    }
+                    arm_asm->Operands3.append(arm.substr(ptr, len));
+                    break;
+                }
+                ptr++;
+            }
+        }
+        else // ldr r1, =var
+        {
+            while(arm[ptr] != '=')
+                ptr++;
+            ptr++;
+            len = 0;
+            for(; len + ptr < arm.length(); len++)
+            {
+                if(!( (arm[len+ptr]>='a'&&arm[len+ptr]<='z')
+                   || (arm[len+ptr]>='A'&&arm[len+ptr]<='Z')
+                   || (arm[len+ptr]>='0'&&arm[len+ptr]<='9')
+                   || arm[len+ptr]=='_') )
+                   break;
+            }
+            if(len + ptr == arm.length())
+                len--;
+            string var = arm.substr(ptr, len-ptr+1);
+
+            reloc_symbol *rel = new reloc_symbol;
+            rel->name = var;
+            rel->type = 1;
+            rel->value = offset_text;
+            reloc_symbol_list.push_back(rel);
+
+            arm_asm->Operands2 = "pc";
+            arm_asm->Operands3 = "-4";
+            
+            _data_handler(".word 4");
+        }
+        
+    }
+    else if(opera == "")
+    {
+        
+    }
+
+
+    arm_assem_list.push_back(arm_asm);
     
 }
 
