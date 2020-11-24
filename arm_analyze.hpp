@@ -193,7 +193,7 @@ void ARM_analyze::_globl_handler(string arm)
 //此处PREFIX_LEN 是指.type'\t'总共加起来的语句前缀长度
 void ARM_analyze::_type_handler(string arm)
 {
-    static map<string, int> typeHandleMap = {
+    static std::map<string, int> typeHandleMap = {
         {"function", FUNCTION},
         {"object", GLOBAL_VAR},
     };
@@ -363,11 +363,7 @@ void ARM_analyze::_instruction_handler(string arm)
     int index2 = arm.find(" ");
     string opera = arm.substr(index1 + 1, index2 - 1);
 
-    //TODO继续拆分得到操作数
-
-    //TODO如果操作数里发现'=' 或操作符里存在跳转 做特殊处理
-
-    //TODO将相关信息加入列表
+    
 }
 
 #endif
