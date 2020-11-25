@@ -104,6 +104,41 @@ void RelocatableFile::genSectionReloc(){
     //生成特殊节区-重定位表
     //input: reloc_symbol_list
     //output: section_info_list.push_back(xxx);
+    SectionInfo *rel=new SectionInfo();
+    rel->no=cur_sec_no;
+    cur_sec_no++;
+    rel->name=".rel";
+
+    //计算节区大小
+    rel->size=reloc_symbol_list.size()*sizeof(Elf32_Rel);
+    rel->content=(char *)malloc(rel->size);
+    //填入节区内容
+    for(int i=0,off=0;i<reloc_symbol_list.size();i++){
+
+        Elf32_Rel *r=new Elf32_Rel();
+        int j=0;
+        for(;j<symbol_list.size();j++){//找到符号表索引，为确定r_info作准备。
+            if(reloc_symbol_list[i]->name==symbol_list[j]->name)
+                break;
+
+        }
+        r->r_info=j<<8;//ELF32_R_SYM(i)的逆过程
+        r->r_offset=reloc_symbol_list[i]->value;
+
+        if(reloc_symbol_list[i]->type==0){//0是函数，类型应该是R_386_JMP_SLOT    7
+            r->r_info=r->r_info+7;//ELF32_R_TYPE(i)的逆过程
+        };
+        if(reloc_symbol_list[i]->type==1){//1是全局变量，类型应该是R_386_GLOB_DAT    6
+            r->r_info=r->r_info+6;//ELF32_R_TYPE(i)的逆过程
+        };
+
+
+        memcpy(rel->content+off,r,sizeof(Elf32_Rel));
+        off+=sizeof(Elf32_Rel);
+    }
+    //存到列表里
+    section_info_list.push_back(rel);
+
 }
 
 
