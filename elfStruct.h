@@ -43,6 +43,12 @@ typedef struct{
 }Elf32_Shdr;
 
 typedef struct{
+    Elf32_Addr r_offset;
+    Elf32_Word r_info;
+}Elf32_Rel;//add by nzb
+
+
+typedef struct{
     Elf32_Half no;//该节区的序号
     std::string name;//该节区的名字
     Elf32_Word size;//该节区内容的长度(Byte)
