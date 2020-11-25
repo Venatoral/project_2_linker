@@ -41,6 +41,7 @@ private:
     void _label_handler(string arm);       //处理  Lable   语句
     void _data_handler(string arm);        //处理  .space/.word   语句
     void _instruction_handler(string arm); //处理一般的指令
+    void _lable_fixer();                   //在所有指令生成后回去处理指令中的跳转标号
 
 public:
     ~ARM_analyze();
@@ -73,6 +74,7 @@ void ARM_analyze::arm_analyze(string arm_assemble)
 
         arm_handler(str);
     }
+    _lable_fixer();
 }
 
 /**
@@ -347,26 +349,29 @@ void ARM_analyze::_data_handler(string data_inst)
     然后留空跳转的相对位移(bl #0)。如果找到了函数或者标号，根据当前指令的位置减去跳转符号的位置(在symbol_list中可以找到)可以得到相对位移。然后跳转语句转化成
             bl  #相对位移
     用该语句创建一个arm_assem并填写相应的值后加入arm_assem_list。
-    
+        upd: 以上操作在_lable_fixer中完成
+
 	对于引用全局变量的伪指令要做相关处理 如 ldr r4, =n
 	创建一个reloc_symbol，名称为n，填写信息后加入reloc_symbol_list
 	然后该语句转换成:
             ldr r4, [pc, #-4]
 	然后在该指令后面再留空4个字节为后面链接时重定位data段中的值做准备
-	留空语句其实就是	.word	0x00000000
+        留空语句为 nop 
 	将转换后的语句和留空语句分别创建arm_assem后加入arm_assem_list
  * */
 /*
     附注：
-    输入的 R/r 不区分大小写，不保证输出的 R/r 的大小写统一
+    输入的 R/r 不区分大小写，不保证输出的 R/r 的大小写统一， 所有形如立即数在输出时删去了前面的 #, 立即数支持负数
     push/pop 指令只支持形如 push {r1, r2, r5} 和 push {r1, r2, r5, r8} 的语句
     mov/cmp 只支持 mov/cmp r2,r4 和 mov/cmp r1, #100
     ldr/str 支持 ldr/str r1, [r2] 和 ldr/str r1, [r2, #8]
         ldr 还支持 ldr r4, =var, 实现方式如上所示
+    mul/add/sub 只支持 add r1, r2, r3 和 add r1, r2 #100
+    跳转指令的op1是相对跳转距离，以字节为单位！！！！！！
 */
 void ARM_analyze::_instruction_handler(string arm)
 {
-    //TODO 代码实在太丑，没有可读性，有机会重构一下，提取函数
+    //TODO 代码实在太丑，没有可读性，有机会重构一下，抽取函数
     
     offset_text += 4;
     
@@ -375,9 +380,11 @@ void ARM_analyze::_instruction_handler(string arm)
     int index2 = arm.find(" ");
     string opera = arm.substr(index1 + 1, index2 - 1);
 
-    arm_assem *arm_asm = new arm_assem();
+    arm_assem *arm_asm = new arm_assem;
 
     arm_asm->op_name = opera;
+
+    bool flag = true; // used in ldr r1, =var
 
     if(opera == "pop" || opera == "push")
     {
@@ -444,13 +451,16 @@ void ARM_analyze::_instruction_handler(string arm)
         else if(arm[ptr] == '#') //e.g. mov r1, #100
         {
             ptr++;
+            if(arm[ptr] == '-')
+                arm_asm->Operands2 = "-";
+            ptr++;
             for(int i = 0; ; i++)
                 if(arm[i + ptr] < '0' || arm[i + ptr] > '9')
                 {
                     len = i;
                     break;
                 }
-            arm_asm->Operands2 = arm.substr(ptr, len);
+            arm_asm->Operands2.append(arm.substr(ptr, len));
         }
     }
     else if(opera == "ldr" || opera == "str")
@@ -521,18 +531,104 @@ void ARM_analyze::_instruction_handler(string arm)
             arm_asm->Operands2 = "pc";
             arm_asm->Operands3 = "-4";
             
-            _data_handler(".word 4");
+            arm_assem *arm_asm2 = new arm_assem;
+            arm_asm2->op_name = "nop";
+            arm_assem_list.push_back(arm_asm);
+            arm_assem_list.push_back(arm_asm2);
+            flag = false;
+
+            offset_text+=4;
         }
         
     }
-    else if(opera == "")
+    else if(opera == "mul" || opera == "add" || opera == "sub")
     {
-        
+        // find op1
+        int ptr = index2;
+        while(arm[ptr] != 'R' && arm[ptr] != 'r')
+            ptr++;
+        int len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
+        arm_asm->Operands1 = arm.substr(ptr, len);
+
+        // find op2
+        ptr += len;
+        while(arm[ptr] != 'R' && arm[ptr] != 'r')
+            ptr++;
+        len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
+        arm_asm->Operands2 = arm.substr(ptr, len);
+
+        // find op3
+        while(arm[ptr] != ',')
+            ptr++;
+        ptr++;
+        while(arm[ptr] == ' ')
+            ptr++;
+        if(arm[ptr] == 'r' || arm[ptr] == 'R') // e.g. add r1, r2, r3
+        {
+            len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
+            arm_asm->Operands3 = arm.substr(ptr, len);
+        }
+        else if(arm[ptr] == '#') //e.g. add r1, r2,  #100
+        {
+            ptr++;
+            if(arm[ptr] == '-')
+                arm_asm->Operands3 = "-";
+            ptr++;
+            for(int i = 0; ; i++)
+                if(arm[i + ptr] < '0' || arm[i + ptr] > '9')
+                {
+                    len = i;
+                    break;
+                }
+            arm_asm->Operands3.append(arm.substr(ptr, len));
+        }
+    }
+    else if(opera == "bl" || opera == "b" || opera == "beq" ||
+            opera == "bne" || opera == "ble" || opera == "bge" ||
+            opera == "bgt" || opera == "blt")
+    {
+        arm_asm->Operands1 = arm.substr(index2 + 1, arm.length() - index2 + 1);
+        arm_asm->Operands2 = to_string(offset_text);
     }
 
+    if(flag)
+        arm_assem_list.push_back(arm_asm);
+}
 
-    arm_assem_list.push_back(arm_asm);
-    
+// 设计见_instruction_handler的注释
+void ARM_analyze::_lable_fixer()
+{
+    int asm_size = arm_assem_list.size();
+    int sym_size = symbol_list.size();
+
+    for(int i = 0; i < asm_size; i++)
+    {
+        if(arm_assem_list[i]->op_name[0] == 'b') // for all jump instruction
+        {
+            string label = arm_assem_list[i]->Operands1; // destination
+            int asm_off = atoi(arm_assem_list[i]->Operands2.c_str()); // jump instruction's next instruction's offset
+            int is_filled = false;
+
+            for(int j = 0; j < sym_size; j++)
+                if(symbol_list[j]->type == 0 && symbol_list[j]->name == label && symbol_list[j]->defined == true) //find label
+                {
+                    arm_assem_list[i]->Operands1 = to_string(symbol_list[j]->value - asm_off); // relative address
+                    arm_assem_list[i]->Operands2 = "";
+                    is_filled = true;
+                }
+            
+            if(!is_filled) // need reloc
+            {
+                reloc_symbol *rel = new reloc_symbol;
+                rel->name = label;
+                rel->type = 0;
+                rel->value = asm_off - 4;
+                reloc_symbol_list.push_back(rel);
+                arm_assem_list[i]->Operands1 = "0";
+                arm_assem_list[i]->Operands2 = "";
+            }
+        }
+    }
 }
 
 #endif

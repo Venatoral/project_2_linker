@@ -68,6 +68,7 @@ typedef struct{
     int type;    //需要重定位的是函数还是全局变量
     std::string name; //符号名称
     int value;    //需要重定位的地方在.text中的偏移
+                  //！！！当为 type = 0 时，value 为该跳转语句的偏移，需要再往后移动几个bit才是重定位地址！！！
 }reloc_symbol;
 
 typedef struct{
