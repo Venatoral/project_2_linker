@@ -6,7 +6,10 @@
 #include "elfstruct.h"
 using namespace std;
 
-class RelocatableFile{
+class RelocatableFile {
+private:
+    string file_name_;
+public:
     //读入
     vector<symbols*> symbol_list;//函数和全局变量的符号 函数的偏移
     vector<reloc_symbol*> reloc_symbol_list;//重定位符号和重定位位置...
@@ -23,7 +26,27 @@ class RelocatableFile{
     Elf32_Half cur_sec_no=0;//记录现在是第几个节区 0号节区有留空规则 每生成一个节区记得自增
 
     //生成.o文件使用的函数列表
-    
+public:
+    // ml: 可以把 freeMalloc() 的工作放到析构函数？
+    ~RelocatableFile() {
+        #define FREE_LIST(x) \
+            for(int i = 0; i < x.size(); i++) { \
+                free(x[i]); \
+            }
+        FREE_LIST(this->symbol_list)
+        FREE_LIST(this->reloc_symbol_list)
+        FREE_LIST(this->arm_assem_list)
+        FREE_LIST(this->data_element_list)
+        FREE_LIST(this->bss_element_list)
+        FREE_LIST(section_info_list)
+        FREE_LIST(shdr_list)
+        #undef FREE_LIST
+    }
+    // ml: 构造函数指定文件名称
+    RelocatableFile(string file_name) {
+        this->file_name_ = file_name;
+    }
+
     void genSectionNote();//生成一些无关紧要or内容固定的节区or第0号节区
 
     //tlx
@@ -200,4 +223,29 @@ void RelocatableFile::genFile(){
     //输出到文件
     //input: section_info_list,shdr_list,elf_header
     //output: FILE*
+    // 打开文件
+    FILE* fp = fopen(this->file_name_.c_str(), "wb");
+    if(!fp) {
+        perror("fopen");
+        exit(EXIT_FAILURE);
+    }
+    // 输出文件头
+    fwrite(&this->elf_header, sizeof(Elf32_Ehdr), 1, fp);
+    // 输出节区
+    for(int i = 0; i < this->section_info_list.size(); i++) {
+        int size = this->section_info_list[i]->size;
+        // 是否已经 align过 ?
+        /**
+         * Todo 如果没有align,则加上
+         *  size = round(size, BASE);
+         * 其中一般Section中BASE = 4, 而.text段为16
+         * */
+        fwrite(this->section_info_list[i]->content, size, 1, fp);
+    }
+    // 输出节区头
+    for(int i = 0; i < this->shdr_list.size(); i++) {
+        fwrite(this->shdr_list[i], sizeof(Elf32_Shdr), 1, fp);
+    }
+    fclose(fp);
 }
+
