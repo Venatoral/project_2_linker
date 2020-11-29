@@ -111,18 +111,53 @@ void RelocatableFile::genSectionBss(){
         bss->content=(char *)malloc((size_t)bss->size);
         //TODO 把数据结构的内容写到连续内存空间里
     }
+    section_info_list.push_back(bss);
 }
 
 void RelocatableFile::genSectionData(){
     //生成特殊节区-已初始化数据
     //input: data_element_list
     //output: section_info_list.push_back(xxx);
+
+    SectionInfo *data=new SectionInfo();
+    data->no=cur_sec_no++;
+    data->name=".data";
+    data->size=0;
+    data->content=NULL;
+    section_info_list.push_back(data);
+
+    for(int i=0; i<data_element_list.size(); i++)
+    {
+        if(data_element_list[i]->op_name == "word")
+            data->size += 4;
+        else if(data_element_list[i]->op_name == "space")
+            data->size += data_element_list[i]->value;
+    }
+
+    data->content=(char *)malloc(data->size);
+
+    int cur=0;
+    for(int i=0; i<data_element_list.size(); i++)
+    {
+        if(data_element_list[i]->op_name == "word")
+        {
+            *(data->content + cur) = data_element_list[i]->value;
+            cur += 4;
+        }
+        else if(data_element_list[i]->op_name == "space")
+        {
+            memset(data->content + cur, 0, data_element_list[i]->value);
+            cur += data_element_list[i]->value;
+        }
+    }
 }
 
 void RelocatableFile::genSectionRodata(){
     //生成特殊节区-只读数据（如printf函数里面的格式控制字符串）
     //input: data_element_list
     //output: section_info_list.push_back(xxx);
+
+    // 我们没有字符串，略
 }
 
 
