@@ -316,7 +316,7 @@ void RelocatableFile::genElfHeader(){
 }
 
 
-void RelocatableFile::genFile(){
+void RelocatableFile::genFile() {
     //输出到文件
     //input: section_info_list,shdr_list,elf_header
     //output: FILE*
