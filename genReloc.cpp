@@ -381,8 +381,8 @@ void RelocatableFile::genElfHeader()
     elf_header.e_shstrndx = cur_sec_no - 1; //由于最后压入节区名字表，故等于cur_sec_no-1
 }
 
-void RelocatableFile::genFile()
-{
+
+void RelocatableFile::genFile() {
     //输出到文件
     //input: section_info_list,shdr_list,elf_header
     //output: FILE*
