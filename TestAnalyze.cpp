@@ -78,7 +78,7 @@ int main(int argc, char const *argv[])
     cout << "data_element_list:\n";
     for (int i = 0; i < ARM_analyze::data_element_list.size(); i++)
     {
-        cout << "\tname:" << ARM_analyze::data_element_list[i]->name << "\t";
+        cout << "\tname:" << ARM_analyze::data_element_list[i]->op_name << "\t";
         cout << "\tvalue:" << ARM_analyze::data_element_list[i]->value << "\t";
         cout << "\n";
     }
