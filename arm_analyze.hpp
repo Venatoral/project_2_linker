@@ -74,7 +74,7 @@ void ARM_analyze::arm_analyze(string arm_assemble)
         head = index;
 
         //这一句的作用是去除每一句结尾的换行符
-        str = str.substr(0, str.length() - 2);
+        str = str.substr(0, str.length() - 1);
         
         arm_handler(str);
     }
@@ -560,7 +560,7 @@ void ARM_analyze::_instruction_handler(string arm)
             reloc_symbol_list.push_back(rel);
 
             arm_asm->Operands2 = "pc";
-            arm_asm->Operands3 = "-4";
+            arm_asm->Operands3 = "#-4";
 
             arm_assem *arm_asm2 = new arm_assem;
             arm_asm2->op_name = "nop";
@@ -621,7 +621,11 @@ void ARM_analyze::_instruction_handler(string arm)
     {
         while(arm[index2] == ' ')
             index2++;
-        arm_asm->Operands1 = arm.substr(index2, arm.length() - index2 + 1);
+        string str = arm.substr(index2, arm.length() - index2 + 1);
+        if(str.find("()") != str.npos)
+            arm_asm->Operands1 = str.substr(0, str.length() - 2);
+        else
+            arm_asm->Operands1 = str;
         arm_asm->Operands2 = to_string(offset_text);
     }
 
@@ -646,7 +650,7 @@ void ARM_analyze::_lable_fixer()
             for (int j = 0; j < sym_size; j++)
                 if ((symbol_list[j]->type == 0 || symbol_list[j]->type == 3) && symbol_list[j]->name == label && symbol_list[j]->defined == true) //find label
                 {
-                    arm_assem_list[i]->Operands1 = to_string(symbol_list[j]->value - asm_off); // relative address
+                    arm_assem_list[i]->Operands1 = "#" + to_string(symbol_list[j]->value - asm_off); // relative address
                     arm_assem_list[i]->Operands2 = "";
                     is_filled = true;
                 }
