@@ -74,7 +74,7 @@ void ARM_analyze::arm_analyze(string arm_assemble)
         head = index;
 
         //这一句的作用是去除每一句结尾的换行符
-        str = str.substr(0, str.length() - 1);
+        str = str.substr(0, str.length() - 2);
         
         arm_handler(str);
     }
