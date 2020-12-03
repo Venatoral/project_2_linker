@@ -357,7 +357,7 @@ void ARM_analyze::_data_handler(string data_inst)
 
     value = atoi(data_inst.substr(split_ndx).c_str());
 
-    d->name = op_name;
+    d->op_name = op_name;
     d->value = value;
     // 加入data组中
     data_element_list.push_back(d);
