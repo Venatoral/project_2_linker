@@ -296,7 +296,7 @@ void RelocatableFile::genSectionText()
             offset += sizeof(bytes);
         }
     }
-
+    text->size=arm_machine.size();
     section_info_list.push_back(text);
 }
 
