@@ -75,7 +75,7 @@ void ARM_analyze::arm_analyze(string arm_assemble)
 
         //这一句的作用是去除每一句结尾的换行符
         str = str.substr(0, str.length() - 2);
-        
+
         arm_handler(str);
     }
     _lable_fixer();
@@ -402,8 +402,8 @@ void ARM_analyze::_data_handler(string data_inst)
 */
 void ARM_analyze::_instruction_handler(string arm)
 {
-    
-    cout<<"*****************"<<arm<<"*****************\n";
+
+    cout << "*****************" << arm << "*****************\n";
     //TODO 代码实在太丑，没有可读性，有机会重构一下，抽取函数
 
     offset_text += 4;
@@ -470,7 +470,7 @@ void ARM_analyze::_instruction_handler(string arm)
         ptr++;
         while (arm[ptr] == ' ')
             ptr++;
-        if (arm[ptr] == 'r' || arm[ptr] == 'R' || 
+        if (arm[ptr] == 'r' || arm[ptr] == 'R' ||
             arm[ptr] == 'p' || arm[ptr] == 'f' ||
             arm[ptr] == 'l' || arm[ptr] == 's') // e.g. mov r1,r2
         {
@@ -590,7 +590,7 @@ void ARM_analyze::_instruction_handler(string arm)
         ptr++;
         while (arm[ptr] == ' ')
             ptr++;
-        if (arm[ptr] == 'r' || arm[ptr] == 'R' || 
+        if (arm[ptr] == 'r' || arm[ptr] == 'R' ||
             arm[ptr] == 'p' || arm[ptr] == 'f' ||
             arm[ptr] == 'l' || arm[ptr] == 's') // e.g. add r1, r2, r3
         {
@@ -619,11 +619,11 @@ void ARM_analyze::_instruction_handler(string arm)
              opera == "bne" || opera == "ble" || opera == "bge" ||
              opera == "bgt" || opera == "blt")
     {
-        while(arm[index2] == ' ')
+        while (arm[index2] == ' ')
             index2++;
         string str = arm.substr(index2, arm.length() - index2 + 1);
-        if(str.find("()") != str.npos)
-            arm_asm->Operands1 = str.substr(0, str.length() - 2);
+        if (str.find("(PLT)") != str.npos)
+            arm_asm->Operands1 = str.substr(0, str.length() - 5);
         else
             arm_asm->Operands1 = str;
         arm_asm->Operands2 = to_string(offset_text);
@@ -650,7 +650,7 @@ void ARM_analyze::_lable_fixer()
             for (int j = 0; j < sym_size; j++)
                 if ((symbol_list[j]->type == 0 || symbol_list[j]->type == 3) && symbol_list[j]->name == label && symbol_list[j]->defined == true) //find label
                 {
-                    arm_assem_list[i]->Operands1 = "#" + to_string(symbol_list[j]->value - asm_off); // relative address
+                    arm_assem_list[i]->Operands1 = "#" + to_string(symbol_list[j]->value - asm_off + 4); // relative address
                     arm_assem_list[i]->Operands2 = "";
                     is_filled = true;
                 }
@@ -680,37 +680,37 @@ void ARM_analyze::_lable_fixer()
 // arm 里，从 index 开始的最近一个 reg，结束后 index 在 arm 里 reg 的最后一个字符上
 string ARM_analyze::get_next_reg(string arm, int &index)
 {
-    while (arm[index] != 'r' && arm[index] != 'R' && 
+    while (arm[index] != 'r' && arm[index] != 'R' &&
            arm[index] != 'p' && arm[index] != 'f' &&
            arm[index] != 'l' && arm[index] != 's' &&
            index < arm.length())
         ++index;
-    if(index == arm.length())
+    if (index == arm.length())
         return "ERROR";
-    if(arm[index] == 'p')
+    if (arm[index] == 'p')
     {
-        if(arm[++index] == 'c')
+        if (arm[++index] == 'c')
             return "pc";
         else
             return "ERROR";
     }
-    else if(arm[index] == 'f')
+    else if (arm[index] == 'f')
     {
-        if(arm[++index] == 'p')
+        if (arm[++index] == 'p')
             return "fp";
         else
             return "ERROR";
     }
-    else if(arm[index] == 'l')
+    else if (arm[index] == 'l')
     {
-        if(arm[++index] == 'r')
+        if (arm[++index] == 'r')
             return "lr";
         else
             return "ERROR";
     }
-    else if(arm[index] == 's')
+    else if (arm[index] == 's')
     {
-        if(arm[++index] == 'p')
+        if (arm[++index] == 'p')
             return "sp";
         else
             return "ERROR";
