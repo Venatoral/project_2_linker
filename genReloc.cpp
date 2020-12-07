@@ -91,6 +91,15 @@ public:
 private:
     char *strtabContent = (char *)malloc(sizeof(char) * 65536);
     int strtabContentSize = 0;
+
+    //tool yrc
+    vector<char> arm_machine; //先把二进制码放在列表里，然后放入char *content;
+
+    void trans_push(arm_assem *arm, int type);
+    void trans_sub(arm_assem *arm, int pop);
+    char get_reg(string s);
+    void trans_jmp(arm_assem *arm, int type);
+    void trans_nop(arm_assem *arm);
 };
 
 void RelocatableFile::genSectionNote()
@@ -173,12 +182,411 @@ void RelocatableFile::genSectionRodata()
     // 我们没有字符串，略
 }
 
+#define _POP_ 0
+#define _PUSH_ 1
+#define _SUB_ 0
+#define _ADD_ 1
+#define _MUL_ 2
+#define _MOV_ 3
+#define _CMP_ 4
+#define _STR_ 5
+#define _LDR_ 6
 void RelocatableFile::genSectionText()
 {
     //生成特殊节区-可执行代码
     //input: arm_assem_list
     //output: section_info_list.push_back(xxx);
+    SectionInfo *text = new SectionInfo();
+    text->name = ".text";
+    text->no = cur_sec_no;
+    cur_sec_no++;
+
+    for (int i = 0; i < arm_assem_list.size(); i++)
+    {
+        if (arm_assem_list[i]->op_name.compare("push") == 0)
+        {
+            trans_push(arm_assem_list[i], _PUSH_);
+        }
+        else if (arm_assem_list[i]->op_name.compare("pop") == 0)
+        {
+            trans_push(arm_assem_list[i], _POP_);
+        }
+        else if (arm_assem_list[i]->op_name.compare("sub") == 0)
+        {
+            trans_sub(arm_assem_list[i], _SUB_);
+        }
+        else if (arm_assem_list[i]->op_name.compare("add") == 0)
+        {
+            trans_sub(arm_assem_list[i], _ADD_);
+        }
+        else if (arm_assem_list[i]->op_name.compare("mul") == 0)
+        {
+            trans_sub(arm_assem_list[i], _MUL_);
+        }
+        else if (arm_assem_list[i]->op_name.compare("mov") == 0)
+        {
+            trans_sub(arm_assem_list[i], _MOV_);
+        }
+        else if (arm_assem_list[i]->op_name.compare("str") == 0)
+        {
+            trans_sub(arm_assem_list[i], _STR_);
+        }
+        else if (arm_assem_list[i]->op_name.compare("ldr") == 0)
+        {
+            trans_sub(arm_assem_list[i], _LDR_);
+        }
+        else if (arm_assem_list[i]->op_name.compare("cmp") == 0)
+        {
+            trans_sub(arm_assem_list[i], _CMP_);
+        }
+        else if (arm_assem_list[i]->op_name.compare("b") == 0)
+        {
+            trans_jmp(arm_assem_list[i], 0);
+        }
+        else if (arm_assem_list[i]->op_name.compare("bl") == 0)
+        {
+            trans_jmp(arm_assem_list[i], 1);
+        }
+        else if (arm_assem_list[i]->op_name.compare("beq") == 0)
+        {
+            trans_jmp(arm_assem_list[i], 2);
+        }
+        else if (arm_assem_list[i]->op_name.compare("bne") == 0)
+        {
+            trans_jmp(arm_assem_list[i], 3);
+        }
+        else if (arm_assem_list[i]->op_name.compare("ble") == 0)
+        {
+            trans_jmp(arm_assem_list[i], 4);
+        }
+        else if (arm_assem_list[i]->op_name.compare("bge") == 0)
+        {
+            trans_jmp(arm_assem_list[i], 5);
+        }
+        else if (arm_assem_list[i]->op_name.compare("bgt") == 0)
+        {
+            trans_jmp(arm_assem_list[i], 6);
+        }
+        else if (arm_assem_list[i]->op_name.compare("blt") == 0)
+        {
+            trans_jmp(arm_assem_list[i], 7);
+        }
+        else if (arm_assem_list[i]->op_name.compare("nop") == 0)
+        {
+            trans_nop(arm_assem_list[i]);
+        }
+    }
+
+    char byte;
+    char bytes[4] = {'\0'};
+    text->content = (char *)malloc(arm_machine.size());
+    int offset = 0;
+    int i = 0;
+    for (auto content : arm_machine)
+    {
+        // printf("%hhx", content);
+        byte = content;
+        bytes[3 - i] = byte;
+        i++;
+        if (i == 4)
+        {
+            printf("\n");
+            i = 0;
+            memcpy(text->content + offset, bytes, sizeof(bytes));
+            offset += sizeof(bytes);
+        }
+    }
+
+    section_info_list.push_back(text);
 }
+
+//tool functions(yrc)
+/**
+ * r0~r7返回对应数值
+ * sp: 0x0d
+ * fp: 0x0b
+**/
+char RelocatableFile::get_reg(string s)
+{
+    if (s.find("r7") != s.npos)
+        return 0x07;
+    if (s.find("r6") != s.npos)
+        return 0x06;
+    if (s.find("r5") != s.npos)
+        return 0x05;
+    if (s.find("r4") != s.npos)
+        return 0x04;
+    if (s.find("r3") != s.npos)
+        return 0x03;
+    if (s.find("r2") != s.npos)
+        return 0x02;
+    if (s.find("r1") != s.npos)
+        return 0x01;
+    if (s.find("r0") != s.npos)
+        return 0x00;
+    if (s.find("sp") != s.npos)
+        return 0x0d;
+    if (s.find("fp") != s.npos)
+        return 0x0b;
+    if (s.find("pc") != s.npos)
+        return 0x0f;
+
+    if (s.find("#") != s.npos)
+    {
+        int index = s.find("#");
+        string num = s.substr(index + 1);
+        int intm = atoi(num.c_str());
+        char byte = intm;
+        return byte;
+    }
+
+    return 0xFF;
+}
+
+//push and pop
+void RelocatableFile::trans_push(arm_assem *_arm_assem, int type)
+{
+    char high = 0x00, low = 0x00;
+    switch (type)
+    {
+    case _PUSH_:
+        arm_machine.push_back(0xe9);
+        arm_machine.push_back(0x2d);
+        break;
+
+    case _POP_:
+        arm_machine.push_back(0xe8);
+        arm_machine.push_back(0xbd);
+        break;
+
+    default:
+        break;
+    }
+
+    string reg_list;
+    for (int i = 0; i < _arm_assem->reglist.size(); i++)
+    {
+        reg_list += _arm_assem->reglist[i];
+    }
+
+    if (reg_list.find("lr") != reg_list.npos)
+        high = high | 0b01000000;
+
+    if (reg_list.find("fp") != reg_list.npos)
+        high = high | 0b00001000;
+
+    if (reg_list.find("pc") != reg_list.npos)
+        high = high | 0b10000000;
+
+    if (reg_list.find("r0") != reg_list.npos)
+        low = low | 0b00000001;
+    if (reg_list.find("r1") != reg_list.npos)
+        low = low | 0b00000010;
+    if (reg_list.find("r2") != reg_list.npos)
+        low = low | 0b00000100;
+    if (reg_list.find("r3") != reg_list.npos)
+        low = low | 0b00001000;
+    if (reg_list.find("r4") != reg_list.npos)
+        low = low | 0b00010000;
+    if (reg_list.find("r5") != reg_list.npos)
+        low = low | 0b00100000;
+    if (reg_list.find("r6") != reg_list.npos)
+        low = low | 0b01000000;
+    if (reg_list.find("r7") != reg_list.npos)
+        low = low | 0b10000000;
+
+    arm_machine.push_back(high);
+    arm_machine.push_back(low);
+}
+
+void RelocatableFile::trans_nop(arm_assem *_arm_assem)
+{
+    arm_machine.push_back(0x00);
+    arm_machine.push_back(0x00);
+    arm_machine.push_back(0x00);
+    arm_machine.push_back(0x00);
+}
+
+//sub add mul mov cmp str ldr
+void RelocatableFile::trans_sub(arm_assem *_arm_assem, int type)
+{
+    char fisrt_byte = 0x00;
+    char second_byte = 0x00;
+    char third_byte = 0x00;
+    char forth_byte = 0x00;
+    char R_second = 0x00;
+    char R_first = 0x00;
+    char has_Immediate = 0x00;
+
+    string F_R = _arm_assem->Operands1;
+    string S_R = _arm_assem->Operands2;
+    string last = _arm_assem->Operands3;
+
+    R_first = get_reg(F_R);
+    R_second = get_reg(S_R);
+
+    if ((last.find("#") != last.npos) || (S_R.find("#") != S_R.npos))
+        has_Immediate = 0x02;
+
+    switch (type)
+    {
+    case _SUB_:
+        fisrt_byte = 0xe0;
+        second_byte = 0x40;
+
+        fisrt_byte += has_Immediate;
+        second_byte += R_second;
+        third_byte = R_first * 16;
+        forth_byte = get_reg(last);
+        break;
+
+    case _ADD_:
+        fisrt_byte = 0xe0;
+        second_byte = 0x80;
+
+        fisrt_byte += has_Immediate;
+        second_byte += R_second;
+        third_byte = R_first * 16;
+        forth_byte = get_reg(last);
+        break;
+
+    case _MUL_:
+        fisrt_byte = 0xe0;
+        forth_byte = 0x90;
+
+        second_byte += R_first;
+        third_byte = get_reg(last);
+        forth_byte += R_second;
+        break;
+
+    case _MOV_:
+        fisrt_byte = 0xe1;
+        second_byte = 0xa0;
+
+        fisrt_byte += has_Immediate;
+        third_byte = R_first * 16;
+        forth_byte = get_reg(S_R);
+        break;
+
+    case _CMP_:
+        fisrt_byte = 0xe1;
+        second_byte = 0x50;
+
+        R_first = get_reg(F_R);
+        second_byte += R_first;
+        forth_byte = get_reg(S_R);
+        break;
+
+    case _STR_:
+        fisrt_byte = 0xe7;
+        second_byte = 0x80;
+
+        fisrt_byte -= has_Immediate;
+
+        if (last.find("#-") != last.npos)
+        { //str和ldr的后12位为无符号偏移量
+            last = '#' + last.substr(2);
+            second_byte -= 0x80;
+        }
+
+        second_byte += R_second;
+        third_byte += R_first * 16;
+        forth_byte = get_reg(last);
+        break;
+
+    case _LDR_:
+        fisrt_byte = 0xe7;
+        second_byte = 0x90;
+
+        fisrt_byte -= has_Immediate;
+
+        if (last.find("#-") != last.npos)
+        { //str和ldr的后12位为无符号偏移量
+            last = '#' + last.substr(2);
+            second_byte -= 0x80;
+        }
+
+        second_byte += R_second;
+        third_byte += R_first * 16;
+
+        forth_byte = get_reg(last);
+        break;
+
+    default:
+        break;
+    }
+
+    arm_machine.push_back(fisrt_byte);
+    arm_machine.push_back(second_byte);
+    arm_machine.push_back(third_byte);
+    arm_machine.push_back(forth_byte);
+}
+
+//jmp指令后24位有符号数计算方法，偏移量=signd_immdeiate<<2 +8
+//type标识跳转的指令0：B   1：BL   2:BEQ   3:BNE   4:BLE   5:BGE   6:BGT   7:BLT
+void RelocatableFile::trans_jmp(arm_assem *_arm_assem, int type)
+{
+    string label_name;
+    signed int signd_immediate;
+    int offset;
+    char fisrt_byte = 0x00;
+    char second_byte = 0x00;
+    char third_byte = 0x00;
+    char fourth_byte = 0x00;
+    switch (type)
+    {
+    case 0:
+        fisrt_byte = 0xea;
+        break;
+    case 1:
+        fisrt_byte = 0xeb;
+        break;
+    case 2:
+        fisrt_byte = 0x0a;
+        break;
+    case 3:
+        fisrt_byte = 0x1a;
+        break;
+    case 4:
+        fisrt_byte = 0xda;
+        break;
+    case 5:
+        fisrt_byte = 0xaa;
+        break;
+    case 6:
+        fisrt_byte = 0xca;
+        break;
+    case 7:
+        fisrt_byte = 0xba;
+        break;
+    default:
+        break;
+    }
+    string operands = _arm_assem->Operands1;
+
+    offset = atoi(operands.substr(1).c_str());
+    signd_immediate = (offset - 8) >> 2;
+    fourth_byte = signd_immediate % (16 * 16 * 16 * 16);
+    signd_immediate >>= 8;
+    third_byte = signd_immediate % (16 * 16);
+    signd_immediate >>= 8;
+    second_byte = signd_immediate;
+
+    arm_machine.push_back(fisrt_byte);
+    arm_machine.push_back(second_byte);
+    arm_machine.push_back(third_byte);
+    arm_machine.push_back(fourth_byte);
+}
+
+#undef _POP_
+#undef _PUSH_
+#undef _SUB_
+#undef _ADD_
+#undef _MUL_
+#undef _MOV_
+#undef _CMP_
+#undef _STR_
+#undef _LDR_
 
 void RelocatableFile::genSectionReloc()
 {
@@ -381,8 +789,8 @@ void RelocatableFile::genElfHeader()
     elf_header.e_shstrndx = cur_sec_no - 1; //由于最后压入节区名字表，故等于cur_sec_no-1
 }
 
-
-void RelocatableFile::genFile() {
+void RelocatableFile::genFile()
+{
     //输出到文件
     //input: section_info_list,shdr_list,elf_header
     //output: FILE*
