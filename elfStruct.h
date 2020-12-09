@@ -1,3 +1,6 @@
+#ifndef ELF_STRUCT_H
+#define ELF_STRUCT_H
+
 #include <stdint.h>
 #include <string>
 #include <vector>
@@ -73,7 +76,7 @@ typedef struct{
     Elf32_Half no;//该节区的序号
     std::string name;//该节区的名字
     Elf32_Word size;//该节区内容的长度(Byte)
-    char *content;//该节区的内容 字符串首地址//TODO 可以换成更安全的结构
+    char *content;//该节区的内容 字符串首地址
 }SectionInfo;
 
 //示例
@@ -248,3 +251,6 @@ typedef struct{
 #define SHF_MASKPROC	     0xf0000000	/* Processor-specific */
 #define SHF_ORDERED	     (1 << 30)	/* Special ordering requirement (Solaris).  */
 #define SHF_EXCLUDE	     (1U << 31)	/* Section is excluded unless referenced or allocated (Solaris).*/
+
+
+#endif

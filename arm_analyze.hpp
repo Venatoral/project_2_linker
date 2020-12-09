@@ -7,7 +7,9 @@
 #include <cstdlib>
 #include <iostream>
 #include <map>
+
 #include "elfStruct.h"
+
 using namespace std;
 
 class ARM_analyze
@@ -636,22 +638,22 @@ void ARM_analyze::_instruction_handler(string arm)
 // 设计见_instruction_handler的注释
 void ARM_analyze::_lable_fixer()
 {
-    int asm_size = arm_assem_list.size();
-    int sym_size = symbol_list.size();
+    int asm_size =ARM_analyze::arm_assem_list.size();
+    int sym_size =ARM_analyze:: symbol_list.size();
 
     for (int i = 0; i < asm_size; i++)
     {
-        if (arm_assem_list[i]->op_name[0] == 'b') // for all jump instruction
+        if (ARM_analyze::arm_assem_list[i]->op_name[0] == 'b') // for all jump instruction
         {
-            string label = arm_assem_list[i]->Operands1;              // destination
-            int asm_off = atoi(arm_assem_list[i]->Operands2.c_str()); // jump instruction's next instruction's offset
+            string label =ARM_analyze:: arm_assem_list[i]->Operands1;              // destination
+            int asm_off = atoi(ARM_analyze::arm_assem_list[i]->Operands2.c_str()); // jump instruction's next instruction's offset
             int is_filled = false;
 
             for (int j = 0; j < sym_size; j++)
-                if ((symbol_list[j]->type == 0 || symbol_list[j]->type == 3) && symbol_list[j]->name == label && symbol_list[j]->defined == true) //find label
+                if ((ARM_analyze::symbol_list[j]->type == 0 || ARM_analyze::symbol_list[j]->type == 3) && ARM_analyze::symbol_list[j]->name == label && ARM_analyze::symbol_list[j]->defined == true) //find label
                 {
-                    arm_assem_list[i]->Operands1 = "#" + to_string(symbol_list[j]->value - asm_off + 4); // relative address
-                    arm_assem_list[i]->Operands2 = "";
+                    ARM_analyze::arm_assem_list[i]->Operands1 = "#" + to_string(ARM_analyze::symbol_list[j]->value - asm_off + 4); // relative address
+                    ARM_analyze::arm_assem_list[i]->Operands2 = "";
                     is_filled = true;
                 }
 
@@ -661,9 +663,9 @@ void ARM_analyze::_lable_fixer()
                 rel->name = label;
                 rel->type = 0;
                 rel->value = asm_off - 4;
-                reloc_symbol_list.push_back(rel);
-                arm_assem_list[i]->Operands1 = "0";
-                arm_assem_list[i]->Operands2 = "";
+                ARM_analyze::reloc_symbol_list.push_back(rel);
+                ARM_analyze::arm_assem_list[i]->Operands1 = "0";
+                ARM_analyze::arm_assem_list[i]->Operands2 = "";
 
                 symbols *sym = new symbols();
                 sym->defined = false;
@@ -671,7 +673,7 @@ void ARM_analyze::_lable_fixer()
                 sym->type = -1;
                 sym->name = label;
                 sym->bind = 0;
-                symbol_list.push_back(sym);
+                ARM_analyze::symbol_list.push_back(sym);
             }
         }
     }
