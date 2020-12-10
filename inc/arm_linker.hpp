@@ -1,7 +1,6 @@
 #ifndef INC_ARM_LINKER_HPP
 #define INC_ARM_LINKER_HPP
 #include "../elfStruct.h"
-#include "arm_elf_file.hpp"
 #include <map>
 #include <vector>
 #include <string>
@@ -33,7 +32,7 @@ public:
     int getSegIndex(string seg_name);                            //获取指定段名在段表下标
     int getSymIndex(string sym_name);                            //获取指定符号名在符号表下标
     void addPhdr(Elf32_Phdr *new_phdr);                         //添加程序头表项
-    void addShdr(Elf32_Shdr *new_shdr);                         //添加一个段表项
+    void addShdr(string shdr_name, Elf32_Shdr *new_shdr);                         //添加一个段表项
     void addSym(string st_name, Elf32_Sym *);                   //添加一个符号表项
     ~ElfFile();
 };
