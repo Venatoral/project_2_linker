@@ -809,9 +809,11 @@ void RelocatableFile::genFile()
     // 输出文件头
     fwrite(&this->elf_header, sizeof(Elf32_Ehdr), 1, fp);
     // 输出节区
-    for (int i = 0; i < this->section_info_list.size(); i++)
-    {
+    for (int i = 0; i < this->section_info_list.size(); i++) {
         int size = this->section_info_list[i]->size;
+        int ndx = this->section_info_list[i]->no;
+        int off = this->shdr_list[ndx]->sh_offset;
+        fseek(fp, off, SEEK_SET);
         // 是否已经 align过 ?
         /**
          * Todo 如果没有align,则加上
@@ -821,8 +823,9 @@ void RelocatableFile::genFile()
         fwrite(this->section_info_list[i]->content, size, 1, fp);
     }
     // 输出节区头
-    for (int i = 0; i < this->shdr_list.size(); i++)
-    {
+    int sh_off = this->elf_header.e_shoff;
+    fseek(fp, sh_off, SEEK_SET);
+    for (int i = 0; i < this->shdr_list.size(); i++) {
         fwrite(this->shdr_list[i], sizeof(Elf32_Shdr), 1, fp);
     }
     fclose(fp);
