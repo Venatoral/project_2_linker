@@ -154,6 +154,13 @@ void RelocatableFile::genSectionNote()
     //生成一些无关紧要or内容固定的节区
     //input: 参考gcc输出和文档要求
     //output: section_info_list.push_back(xxx);
+
+    SectionInfo *empty_section = new SectionInfo();
+    empty_section->no = cur_sec_no++;
+    empty_section->name = "";
+    empty_section->size = 0;
+    empty_section->content = NULL;
+    section_info_list.push_back(empty_section);
 }
 
 void RelocatableFile::genSectionBss()
