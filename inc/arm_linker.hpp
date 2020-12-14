@@ -6,6 +6,16 @@
 #include <string>
 using namespace std;
 
+/**Tasks：
+* 1. SegList::allocAddr + Linker::allocAddr    分配地址
+* 2. SegList::relocAddr + Linker::relocate     重定位
+* 3. Linker::collectInfo                       收集所有ElfFile类的信息
+* 4. Linker::parseSym                          符号解析（修改所有符号地址）
+* 5. Linker::makeExec                          组装可执行文件EilfFile对象
+* 6. Linker::writeExec + ElfFile               构造函数ElfFile读取Elf文件 + 写可执行文件
+**/
+
+
 // Elf文件类
 class ElfFile {
 private:
