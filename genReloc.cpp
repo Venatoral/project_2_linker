@@ -257,7 +257,7 @@ void RelocatableFile::genSectionSymtab()
         temp.st_size = symbol->name.length();
         temp.st_other = 0;
         //Question: st_shndx如何从symbol_list获取？
-        content->emplace_back(temp); //push_back是使用值传递，不需要重新声明temp
+        content->emplace_back(temp); //emplace_back是使用值传递，不需要重新声明temp
         if (symbol->bind == LOCAL)
             symtab_local_last_idx = curIndex;
     }
@@ -381,8 +381,8 @@ void RelocatableFile::genElfHeader()
     elf_header.e_shstrndx = cur_sec_no - 1; //由于最后压入节区名字表，故等于cur_sec_no-1
 }
 
-
-void RelocatableFile::genFile() {
+void RelocatableFile::genFile()
+{
     //输出到文件
     //input: section_info_list,shdr_list,elf_header
     //output: FILE*
