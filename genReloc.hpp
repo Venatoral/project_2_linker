@@ -1,10 +1,18 @@
+#ifndef GEN_RELOC_HPP
+#define GEN_RELOC_HPP
+
 #include <cstdio>
 #include <vector>
 #include <string>
 #include <cstring>
 #include <cstdlib>
+#include <iostream>
 #include <map>
+
 #include "elfStruct.h"
+
+#include "arm_analyze.hpp"
+
 using namespace std;
 
 class RelocatableFile
@@ -13,13 +21,14 @@ private:
     string file_name_;
 
 public:
+/*
     //读入
     vector<symbols *> symbol_list;            //函数和全局变量的符号 函数的偏移
     vector<reloc_symbol *> reloc_symbol_list; //重定位符号和重定位位置...
     vector<arm_assem *> arm_assem_list;       //储存分析好的汇编代码...一一对应...
     vector<data_element *> data_element_list; //data段变量名称和值
     vector<bss_element *> bss_element_list;   //bss段变量名称和值
-
+*/
     //生成的结构
     vector<SectionInfo *> section_info_list; //节区列表
     vector<Elf32_Shdr *> shdr_list;          //节区头部列表
@@ -39,11 +48,11 @@ public:
     {                                  \
         free(x[i]);                    \
     }
-        FREE_LIST(this->symbol_list)
-        FREE_LIST(this->reloc_symbol_list)
-        FREE_LIST(this->arm_assem_list)
-        FREE_LIST(this->data_element_list)
-        FREE_LIST(this->bss_element_list)
+        FREE_LIST(ARM_analyze::symbol_list)
+        FREE_LIST(ARM_analyze::reloc_symbol_list)
+        FREE_LIST(ARM_analyze::arm_assem_list)
+        FREE_LIST(ARM_analyze::data_element_list)
+        FREE_LIST(ARM_analyze::bss_element_list)
         FREE_LIST(section_info_list)
         FREE_LIST(shdr_list)
 #undef FREE_LIST
@@ -52,6 +61,7 @@ public:
     RelocatableFile(string file_name)
     {
         this->file_name_ = file_name;
+        genRelocFile();
     }
 
     void genSectionNote(); //生成一些无关紧要or内容固定的节区or第0号节区
@@ -78,8 +88,12 @@ public:
 
     //ml
     void genFile();    //输出到文件
-    void freeMalloc(); //释放掉malloc的内存（在生成阶段，节区内容是malloc申请内存的，所以传出char *指针）
+   //freeMalloc(); //释放掉malloc的内存（在生成阶段，节区内容是malloc申请内存的，所以传出char *指针）
 
+    //lt
+    void genRelocFile();
+
+private:
     //tool lt
     Elf32_Word getShType(string name);
     Elf32_Word getShFlags(string name);
@@ -102,11 +116,51 @@ private:
     void trans_nop(arm_assem *arm);
 };
 
+//lt call all generating relocateable file's function
+void RelocatableFile::genRelocFile(){
+    genSectionNote(); //生成一些无关紧要or内容固定的节区or第0号节区
+    cout<<"note"<<endl;
+    //tlx
+    genSectionBss();    //生成特殊节区-未初始化数据（初始化为0 不占用文件空间）--给这个函数写了个示意可以参考看看
+    genSectionData();   //生成特殊节区-已初始化数据
+    genSectionRodata(); //生成特殊节区-只读数据（如printf函数里面的格式控制字符串）
+    cout<<"data"<<endl;
+    //yrc
+    genSectionText(); //生成特殊节区-可执行代码
+    cout<<"text"<<endl;
+    //nzb
+    genSectionReloc(); //生成特殊节区-重定位表
+    cout<<"reloc"<<endl;
+    //zyj
+    genSectionSymtab(); //生成特殊节区-符号表
+    genSectionStrtab(); //生成特殊节区-符号名字表
+    cout<<"sym"<<endl;
+    //lt
+    genSectionShstrtab(); //生成特殊节区-节区名字表
+    cout<<"1"<<endl;
+    genShdrList();        //生成节区头部列表
+    cout<<"2"<<endl;
+    genElfHeader();       //生成elf文件头
+    cout<<"sh"<<endl;
+    //ml
+    genFile();    //输出到文件
+    cout<<"file"<<endl;
+    //freeMalloc(); //释放掉malloc的内存（在生成阶段，节区内容是malloc申请内存的，所以传出char *指针）
+
+}
+
 void RelocatableFile::genSectionNote()
 {
     //生成一些无关紧要or内容固定的节区
     //input: 参考gcc输出和文档要求
     //output: section_info_list.push_back(xxx);
+
+    SectionInfo *empty_section = new SectionInfo();
+    empty_section->no = cur_sec_no++;
+    empty_section->name = "";
+    empty_section->size = 0;
+    empty_section->content = NULL;
+    section_info_list.push_back(empty_section);
 }
 
 void RelocatableFile::genSectionBss()
@@ -147,28 +201,28 @@ void RelocatableFile::genSectionData()
     data->content = NULL;
     section_info_list.push_back(data);
 
-    for (int i = 0; i < data_element_list.size(); i++)
+    for (int i = 0; i < ARM_analyze::data_element_list.size(); i++)
     {
-        if (data_element_list[i]->op_name == "word")
+        if (ARM_analyze::data_element_list[i]->op_name == "word")
             data->size += 4;
-        else if (data_element_list[i]->op_name == "space")
-            data->size += data_element_list[i]->value;
+        else if (ARM_analyze::data_element_list[i]->op_name == "space")
+            data->size += ARM_analyze::data_element_list[i]->value;
     }
 
     data->content = (char *)malloc(data->size);
 
     int cur = 0;
-    for (int i = 0; i < data_element_list.size(); i++)
+    for (int i = 0; i < ARM_analyze::data_element_list.size(); i++)
     {
-        if (data_element_list[i]->op_name == "word")
+        if (ARM_analyze::data_element_list[i]->op_name == "word")
         {
-            *(data->content + cur) = data_element_list[i]->value;
+            *(data->content + cur) = ARM_analyze::data_element_list[i]->value;
             cur += 4;
         }
-        else if (data_element_list[i]->op_name == "space")
+        else if (ARM_analyze::data_element_list[i]->op_name == "space")
         {
-            memset(data->content + cur, 0, data_element_list[i]->value);
-            cur += data_element_list[i]->value;
+            memset(data->content + cur, 0,ARM_analyze::data_element_list[i]->value);
+            cur += ARM_analyze::data_element_list[i]->value;
         }
     }
 }
@@ -201,79 +255,79 @@ void RelocatableFile::genSectionText()
     text->no = cur_sec_no;
     cur_sec_no++;
 
-    for (int i = 0; i < arm_assem_list.size(); i++)
+    for (int i = 0; i < ARM_analyze::arm_assem_list.size(); i++)
     {
-        if (arm_assem_list[i]->op_name.compare("push") == 0)
+        if (ARM_analyze::arm_assem_list[i]->op_name.compare("push") == 0)
         {
-            trans_push(arm_assem_list[i], _PUSH_);
+            trans_push(ARM_analyze::arm_assem_list[i], _PUSH_);
         }
-        else if (arm_assem_list[i]->op_name.compare("pop") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("pop") == 0)
         {
-            trans_push(arm_assem_list[i], _POP_);
+            trans_push(ARM_analyze::arm_assem_list[i], _POP_);
         }
-        else if (arm_assem_list[i]->op_name.compare("sub") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("sub") == 0)
         {
-            trans_sub(arm_assem_list[i], _SUB_);
+            trans_sub(ARM_analyze::arm_assem_list[i], _SUB_);
         }
-        else if (arm_assem_list[i]->op_name.compare("add") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("add") == 0)
         {
-            trans_sub(arm_assem_list[i], _ADD_);
+            trans_sub(ARM_analyze::arm_assem_list[i], _ADD_);
         }
-        else if (arm_assem_list[i]->op_name.compare("mul") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("mul") == 0)
         {
-            trans_sub(arm_assem_list[i], _MUL_);
+            trans_sub(ARM_analyze::arm_assem_list[i], _MUL_);
         }
-        else if (arm_assem_list[i]->op_name.compare("mov") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("mov") == 0)
         {
-            trans_sub(arm_assem_list[i], _MOV_);
+            trans_sub(ARM_analyze::arm_assem_list[i], _MOV_);
         }
-        else if (arm_assem_list[i]->op_name.compare("str") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("str") == 0)
         {
-            trans_sub(arm_assem_list[i], _STR_);
+            trans_sub(ARM_analyze::arm_assem_list[i], _STR_);
         }
-        else if (arm_assem_list[i]->op_name.compare("ldr") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("ldr") == 0)
         {
-            trans_sub(arm_assem_list[i], _LDR_);
+            trans_sub(ARM_analyze::arm_assem_list[i], _LDR_);
         }
-        else if (arm_assem_list[i]->op_name.compare("cmp") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("cmp") == 0)
         {
-            trans_sub(arm_assem_list[i], _CMP_);
+            trans_sub(ARM_analyze::arm_assem_list[i], _CMP_);
         }
-        else if (arm_assem_list[i]->op_name.compare("b") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("b") == 0)
         {
-            trans_jmp(arm_assem_list[i], 0);
+            trans_jmp(ARM_analyze::arm_assem_list[i], 0);
         }
-        else if (arm_assem_list[i]->op_name.compare("bl") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("bl") == 0)
         {
-            trans_jmp(arm_assem_list[i], 1);
+            trans_jmp(ARM_analyze::arm_assem_list[i], 1);
         }
-        else if (arm_assem_list[i]->op_name.compare("beq") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("beq") == 0)
         {
-            trans_jmp(arm_assem_list[i], 2);
+            trans_jmp(ARM_analyze::arm_assem_list[i], 2);
         }
-        else if (arm_assem_list[i]->op_name.compare("bne") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("bne") == 0)
         {
-            trans_jmp(arm_assem_list[i], 3);
+            trans_jmp(ARM_analyze::arm_assem_list[i], 3);
         }
-        else if (arm_assem_list[i]->op_name.compare("ble") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("ble") == 0)
         {
-            trans_jmp(arm_assem_list[i], 4);
+            trans_jmp(ARM_analyze::arm_assem_list[i], 4);
         }
-        else if (arm_assem_list[i]->op_name.compare("bge") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("bge") == 0)
         {
-            trans_jmp(arm_assem_list[i], 5);
+            trans_jmp(ARM_analyze::arm_assem_list[i], 5);
         }
-        else if (arm_assem_list[i]->op_name.compare("bgt") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("bgt") == 0)
         {
-            trans_jmp(arm_assem_list[i], 6);
+            trans_jmp(ARM_analyze::arm_assem_list[i], 6);
         }
-        else if (arm_assem_list[i]->op_name.compare("blt") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("blt") == 0)
         {
-            trans_jmp(arm_assem_list[i], 7);
+            trans_jmp(ARM_analyze::arm_assem_list[i], 7);
         }
-        else if (arm_assem_list[i]->op_name.compare("nop") == 0)
+        else if (ARM_analyze::arm_assem_list[i]->op_name.compare("nop") == 0)
         {
-            trans_nop(arm_assem_list[i]);
+            trans_nop(ARM_analyze::arm_assem_list[i]);
         }
     }
 
@@ -290,7 +344,7 @@ void RelocatableFile::genSectionText()
         i++;
         if (i == 4)
         {
-            printf("\n");
+            //printf("\n");
             i = 0;
             memcpy(text->content + offset, bytes, sizeof(bytes));
             offset += sizeof(bytes);
@@ -599,27 +653,27 @@ void RelocatableFile::genSectionReloc()
     rel->name = ".rel";
 
     //计算节区大小
-    rel->size = reloc_symbol_list.size() * sizeof(Elf32_Rel);
+    rel->size = ARM_analyze::reloc_symbol_list.size() * sizeof(Elf32_Rel);
     rel->content = (char *)malloc(rel->size);
     //填入节区内容
-    for (int i = 0, off = 0; i < reloc_symbol_list.size(); i++)
+    for (int i = 0, off = 0; i < ARM_analyze::reloc_symbol_list.size(); i++)
     {
 
         Elf32_Rel *r = new Elf32_Rel();
         int j = 0;
-        for (; j < symbol_list.size(); j++)
+        for (; j < ARM_analyze::symbol_list.size(); j++)
         { //找到符号表索引，为确定r_info作准备。
-            if (reloc_symbol_list[i]->name == symbol_list[j]->name)
+            if (ARM_analyze::reloc_symbol_list[i]->name == ARM_analyze::symbol_list[j]->name)
                 break;
         }
         r->r_info = j << 8; //ELF32_R_SYM(i)的逆过程
-        r->r_offset = reloc_symbol_list[i]->value;
+        r->r_offset = ARM_analyze::reloc_symbol_list[i]->value;
 
-        if (reloc_symbol_list[i]->type == 0)
+        if (ARM_analyze::reloc_symbol_list[i]->type == 0)
         {                              //0是函数，类型应该是R_386_JMP_SLOT    7
             r->r_info = r->r_info + 7; //ELF32_R_TYPE(i)的逆过程
         };
-        if (reloc_symbol_list[i]->type == 1)
+        if (ARM_analyze::reloc_symbol_list[i]->type == 1)
         {                              //1是全局变量，类型应该是R_386_GLOB_DAT    6
             r->r_info = r->r_info + 6; //ELF32_R_TYPE(i)的逆过程
         };
@@ -650,7 +704,7 @@ void RelocatableFile::genSectionSymtab()
     Elf32_Sym temp;
     int offset = 0;
     int curIndex = -1;
-    for (auto symbol : symbol_list)
+    for (auto symbol : ARM_analyze::symbol_list)
     {
         ++curIndex;
         temp.st_info = symbol->type;
@@ -665,7 +719,7 @@ void RelocatableFile::genSectionSymtab()
         temp.st_size = symbol->name.length();
         temp.st_other = 0;
         //Question: st_shndx如何从symbol_list获取？
-        content->emplace_back(temp); //emplace_back是使用值传递，不需要重新声明temp
+        content->emplace_back(temp); //push_back是使用值传递，不需要重新声明temp
         if (symbol->bind == LOCAL)
             symtab_local_last_idx = curIndex;
     }
@@ -704,20 +758,22 @@ void RelocatableFile::genSectionShstrtab()
     shstrtab->no = cur_sec_no++;
     shstrtab->name = ".shstrtab";
     shstrtab->size = 0;
-    shstrtab->content = NULL;
     section_info_list.push_back(shstrtab);
-
     //计算节区大小
-    for (int i = 0; i < cur_sec_no; i++)
+    for (int i = 0; i < section_info_list.size(); i++)
     {
         shstrtab->size += section_info_list[i]->name.length() + 1;
+       // cout<<section_info_list[i]->name<<endl;
+        //cout<<section_info_list[i]->name.length()<<endl;
+        //cout<<shstrtab->size<<endl;
         //+1为了留出'\0'的位置
     }
-    shstrtab->content = (char *)malloc((shstrtab->size) * sizeof(char));
-
+    shstrtab->content = (char *)malloc(shstrtab->size);
+    //cout<<"malloc"<<endl;
     //填入节区内容
     memset(shstrtab->content, 0, (shstrtab->size) * sizeof(char));
-    for (int i = 0, off = 0; i < cur_sec_no; i++)
+    //cout<<"memset"<<endl;
+    for (int i = 0, off = 0; i < section_info_list.size(); i++)
     {
         strncpy(shstrtab->content + off, section_info_list[i]->name.c_str(), section_info_list[i]->name.length());
         off += section_info_list[i]->name.length() + 1;
@@ -781,8 +837,8 @@ void RelocatableFile::genElfHeader()
     elf_header.e_flags = 0x5000000;          //Version5 EABI
     elf_header.e_ehsize = sizeof(Elf32_Ehdr);
 
-    elf_header.e_phentsize; //现在没有程序头部表格
-    elf_header.e_phnum;     //现在没有程序头部表格
+    elf_header.e_phentsize=0; //现在没有程序头部表格
+    elf_header.e_phnum=0;     //现在没有程序头部表格
 
     elf_header.e_shentsize = sizeof(Elf32_Shdr);
     elf_header.e_shnum = cur_sec_no - 1;
@@ -808,12 +864,15 @@ void RelocatableFile::genFile()
     }
     // 输出文件头
     fwrite(&this->elf_header, sizeof(Elf32_Ehdr), 1, fp);
+    // 输出节区头
+    for (int i = 0; i < this->shdr_list.size(); i++)
+    {
+        fwrite(this->shdr_list[i], sizeof(Elf32_Shdr), 1, fp);
+    }
     // 输出节区
-    for (int i = 0; i < this->section_info_list.size(); i++) {
+    for (int i = 0; i < this->section_info_list.size(); i++)
+    {
         int size = this->section_info_list[i]->size;
-        int ndx = this->section_info_list[i]->no;
-        int off = this->shdr_list[ndx]->sh_offset;
-        fseek(fp, off, SEEK_SET);
         // 是否已经 align过 ?
         /**
          * Todo 如果没有align,则加上
@@ -821,12 +880,6 @@ void RelocatableFile::genFile()
          * 其中一般Section中BASE = 4, 而.text段为16
          * */
         fwrite(this->section_info_list[i]->content, size, 1, fp);
-    }
-    // 输出节区头
-    int sh_off = this->elf_header.e_shoff;
-    fseek(fp, sh_off, SEEK_SET);
-    for (int i = 0; i < this->shdr_list.size(); i++) {
-        fwrite(this->shdr_list[i], sizeof(Elf32_Shdr), 1, fp);
     }
     fclose(fp);
 }
@@ -912,3 +965,5 @@ Elf32_Word RelocatableFile::getShEntsize(string name)
         return sizeof(Elf32_Sym);
     return 0;
 }
+
+#endif

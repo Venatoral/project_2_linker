@@ -7,7 +7,9 @@
 #include <cstdlib>
 #include <iostream>
 #include <map>
+
 #include "elfStruct.h"
+
 using namespace std;
 
 class ARM_analyze
@@ -42,6 +44,7 @@ private:
     void _data_handler(string arm);        //处理  .space/.word   语句
     void _instruction_handler(string arm); //处理一般的指令
     void _lable_fixer();                   //在所有指令生成后回去处理指令中的跳转标号
+    string get_next_reg(string arm, int &index);
 
 public:
     ~ARM_analyze();
@@ -68,9 +71,12 @@ void ARM_analyze::arm_analyze(string arm_assemble)
         {
             index = arm_code.find("\n", head);
         }
-        string str = arm_code.substr(head, index - head);
+        string str = arm_code.substr(head, index - head + 1);
         index++;
         head = index;
+
+        //这一句的作用是去除每一句结尾的换行符
+        str = str.substr(0, str.length() - 2);
 
         arm_handler(str);
     }
@@ -191,7 +197,7 @@ void ARM_analyze::_globl_handler(string arm)
 #define FUNCTION 0
 #define GLOBAL_VAR 1
 #define LABLE 2
-#define PREFIX_LEN 6 
+#define PREFIX_LEN 6
 //此处PREFIX_LEN 是指.type'\t'总共加起来的语句前缀长度
 void ARM_analyze::_type_handler(string arm)
 {
@@ -199,12 +205,16 @@ void ARM_analyze::_type_handler(string arm)
         {"function", FUNCTION},
         {"object", GLOBAL_VAR},
     };
-    string name = "";
-    for (auto ch : arm.substr(PREFIX_LEN))
-        if ((ch <= 'z' && ch >= 'a') || (ch <= 'Z' && ch >= 'A') || (ch <= '9' && ch >= '0') || ch == '_')
-            name += ch;
-        else
-            break;
+
+    //此处做了修改
+    string name = arm.substr(PREFIX_LEN, arm.find(',') - PREFIX_LEN);
+    name.erase(0, name.find_first_not_of(" "));
+    // for (auto ch : arm.substr(PREFIX_LEN))
+    //     if ((ch <= 'z' && ch >= 'a') || (ch <= 'Z' && ch >= 'A') || (ch <= '9' && ch >= '0') || ch == '_')
+    //         name += ch;
+    //     else
+    //         break;
+
     string type = arm.substr(arm.find_first_of('%') + 1);
     bool isFind = false;
     for (auto symbol : ARM_analyze::symbol_list)
@@ -237,8 +247,8 @@ void ARM_analyze::_type_handler(string arm)
     如果是标号声明比如.L0
     直接创建symbols初始化后加入symbol_list
     对全局变量声明a:
-    直接创建symbols初始化后加入symbol_list
-
+        根据名称在symbol_list中查找（通常在链表的结尾，可以从后往前查找），如果没找到则创建一个symbols并做相应初始化后加入symbol_list，
+        如果找到的话将对应项中是否定义改为已定义
     如何区分是全局变量还是函数？
         根据标识符is_in_text判断汇编是否进入.text
         is_in_text=true 说明是函数
@@ -247,7 +257,6 @@ void ARM_analyze::_type_handler(string arm)
  * */
 void ARM_analyze::_label_handler(string arm)
 {
-
     if (arm.find(".") != string::npos)
     {
         int front = 0;
@@ -257,7 +266,7 @@ void ARM_analyze::_label_handler(string arm)
         symbols *a = new symbols();
         a->defined = true;
         a->value = offset_text;
-        a->type = 2;
+        a->type = 3;
         a->name = n;
         symbol_list.push_back(a);
         return;
@@ -294,17 +303,32 @@ void ARM_analyze::_label_handler(string arm)
         }
     }
     else if (is_in_text == false)
-    { //全局变量，直接插入
+    { //全局变量也要先找symbol_list里有没有
         int front = 0;
         int end = arm.find(":");
         string n = arm.substr(front, end);
 
-        symbols *a = new symbols();
-        a->defined = true;
-        a->value = offset_data;
-        a->type = 1;
-        a->name = n;
-        symbol_list.push_back(a);
+        //added by yrc
+        int i = 0;
+        for (; i < symbol_list.size(); i++)
+        {
+            symbols *b = symbol_list[i];
+            if (n == b->name)
+                break;
+        } //寻找等于此符号名的symbol
+
+        if (i < symbol_list.size())         //找到了
+            symbol_list[i]->defined = true; //直接改
+
+        if (i == symbol_list.size()) //没找到，新建插入
+        {
+            symbols *a = new symbols();
+            a->defined = true;
+            a->value = offset_data;
+            a->type = 1;
+            a->name = n;
+            symbol_list.push_back(a);
+        }
     }
 }
 
@@ -329,11 +353,22 @@ void ARM_analyze::_data_handler(string data_inst)
         exit(EXIT_FAILURE);
     }
     op_name = data_inst.substr(0, split_ndx);
+
+    //added by yrc
+    op_name = op_name.substr(op_name.find('.') + 1);
+
     value = atoi(data_inst.substr(split_ndx).c_str());
+
     d->op_name = op_name;
     d->value = value;
     // 加入data组中
     data_element_list.push_back(d);
+
+    //added by yrc
+    if (op_name == "word")
+        offset_data += 4;
+    if (op_name == "space")
+        offset_data += value;
 }
 
 /**
@@ -342,7 +377,6 @@ void ARM_analyze::_data_handler(string data_inst)
  * //TODO
  *  正常的汇编指令：
 	根据字符串的拆分，分析相应的操作符和操作数，创建一个arm_assem并填写相应的值后加入arm_assem_list
-
 	特殊注意：
 	对于跳转语句 如 bl memset(各种跳转)
 	根据跳转的目标标号名称在symbol_list中查找，如果没有找到或找到的对应项中defined=false(该符号没有在此文件中定义) 则根据该名称创建一个reloc_symbol,填写相关信息后加入reloc_symbol_list
@@ -350,7 +384,6 @@ void ARM_analyze::_data_handler(string data_inst)
             bl  #相对位移
     用该语句创建一个arm_assem并填写相应的值后加入arm_assem_list。
         upd: 以上操作在_lable_fixer中完成
-
 	对于引用全局变量的伪指令要做相关处理 如 ldr r4, =n
 	创建一个reloc_symbol，名称为n，填写信息后加入reloc_symbol_list
 	然后该语句转换成:
@@ -371,10 +404,12 @@ void ARM_analyze::_data_handler(string data_inst)
 */
 void ARM_analyze::_instruction_handler(string arm)
 {
+
+    cout << "*****************" << arm << "*****************\n";
     //TODO 代码实在太丑，没有可读性，有机会重构一下，抽取函数
-    
+
     offset_text += 4;
-    
+
     // get operater
     int index1 = arm.find("\t");
     int index2 = arm.find(" ");
@@ -386,28 +421,28 @@ void ARM_analyze::_instruction_handler(string arm)
 
     bool flag = true; // used in ldr r1, =var
 
-    if(opera == "pop" || opera == "push")
+    if (opera == "pop" || opera == "push")
     {
         int ptr = arm.find("{") + 1;
-        if(arm.find("-") != arm.npos)
+        if (arm.find("-") != arm.npos)
         {
-            while(arm[ptr] != 'r' && arm[ptr] != 'R')
+            while (arm[ptr] != 'r' && arm[ptr] != 'R')
                 ++ptr;
-            
+
             int first_reg = arm[++ptr] - '0';
             ++ptr;
-            if(arm[ptr] >= '0' && arm[ptr] <= '9')
+            if (arm[ptr] >= '0' && arm[ptr] <= '9')
                 first_reg = first_reg * 10 + (arm[ptr] - '0');
-            
-            while(arm[ptr] != 'r' && arm[ptr] != 'R')
+
+            while (arm[ptr] != 'r' && arm[ptr] != 'R')
                 ++ptr;
-            
+
             int last_reg = arm[++ptr] - '0';
             ++ptr;
-            if(arm[ptr] >= '0' && arm[ptr] <= '9')
+            if (arm[ptr] >= '0' && arm[ptr] <= '9')
                 last_reg = last_reg * 10 + (arm[ptr] - '0');
-            
-            for(int i = first_reg; i <= last_reg; i++)
+
+            for (int i = first_reg; i <= last_reg; i++)
             {
                 string reg = "r";
                 reg.push_back((char)(i + '0'));
@@ -417,45 +452,45 @@ void ARM_analyze::_instruction_handler(string arm)
         else
         {
             int ptr = arm.find("{") + 1;
-            for(; arm[ptr] != '}'; ptr++)
+            for (; arm[ptr] != '}'; ptr++)
             {
-                if(arm[ptr] == 'r' || arm[ptr] == 'R')
-                {
-                    int len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
-                    string reg = arm.substr(ptr, len);
-                    arm_asm->reglist.push_back(reg);
-                }
+                string reg = get_next_reg(arm, ptr);
+                arm_asm->reglist.push_back(reg);
             }
         }
     }
-    else if(opera == "mov" || opera == "cmp")
+    else if (opera == "mov" || opera == "cmp")
     {
         // find op1
         int ptr = index2;
-        while(arm[ptr] != 'R' && arm[ptr] != 'r')
-            ptr++;
-        int len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
-        arm_asm->Operands1 = arm.substr(ptr, len);
+        arm_asm->Operands1 = get_next_reg(arm, ptr);
+        ptr++;
 
         // find op2
-        while(arm[ptr] != ',')
+        while (arm[ptr] != ',')
             ptr++;
         ptr++;
-        while(arm[ptr] == ' ')
+        while (arm[ptr] == ' ')
             ptr++;
-        if(arm[ptr] == 'r' || arm[ptr] == 'R') // e.g. mov r1,r2
+        if (arm[ptr] == 'r' || arm[ptr] == 'R' ||
+            arm[ptr] == 'p' || arm[ptr] == 'f' ||
+            arm[ptr] == 'l' || arm[ptr] == 's') // e.g. mov r1,r2
         {
-            len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
-            arm_asm->Operands2 = arm.substr(ptr, len);
+            arm_asm->Operands2 = get_next_reg(arm, ptr);
+            ptr++;
         }
-        else if(arm[ptr] == '#') //e.g. mov r1, #100
+        else if (arm[ptr] == '#') //e.g. mov r1, #100
         {
+            arm_asm->Operands2 = "#";
             ptr++;
-            if(arm[ptr] == '-')
-                arm_asm->Operands2 = "-";
-            ptr++;
-            for(int i = 0; ; i++)
-                if(arm[i + ptr] < '0' || arm[i + ptr] > '9')
+            if (arm[ptr] == '-')
+            {
+                arm_asm->Operands2.append("-");
+                ptr++;
+            }
+            int len;
+            for (int i = 0;; i++)
+                if (arm[i + ptr] < '0' || arm[i + ptr] > '9')
                 {
                     len = i;
                     break;
@@ -463,41 +498,42 @@ void ARM_analyze::_instruction_handler(string arm)
             arm_asm->Operands2.append(arm.substr(ptr, len));
         }
     }
-    else if(opera == "ldr" || opera == "str")
+    else if (opera == "ldr" || opera == "str")
     {
         // find op1
         int ptr = index2;
-        while(arm[ptr] != 'R' && arm[ptr] != 'r')
-            ptr++;
-        int len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
-        arm_asm->Operands1 = arm.substr(ptr, len);
+        arm_asm->Operands1 = get_next_reg(arm, ptr);
+        ptr++;
+
+        int len;
 
         // find op2
-        if(arm.find('=') == arm.npos) // ldr r1, [r2(, #100)]
+        if (arm.find('=') == arm.npos) // ldr r1, [r2(, #100)]
         {
-            while(arm[ptr] != '[')
+            while (arm[ptr] != '[')
                 ptr++;
             ptr++;
-            len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
-            arm_asm->Operands2 = arm.substr(ptr, len);
+            arm_asm->Operands2 = get_next_reg(arm, ptr);
+            ptr++;
 
             // find op3 if exist
-            while(arm[ptr] != ']')
+            while (arm[ptr] != ']')
             {
-                if(arm[ptr] == '#')
+                if (arm[ptr] == '#')
                 {
+                    arm_asm->Operands3 = "#";
                     ptr++;
-                    if(arm[ptr] == '-')
+                    if (arm[ptr] == '-')
                     {
-                        arm_asm->Operands3 = "-";
+                        arm_asm->Operands3.append("-");
                         ptr++;
-                    }   
-                    for(int i = 0; ; i++)
-                    if(arm[i + ptr] < '0' || arm[i + ptr] > '9')
-                    {
-                        len = i;
-                        break;
                     }
+                    for (int i = 0;; i++)
+                        if (arm[i + ptr] < '0' || arm[i + ptr] > '9')
+                        {
+                            len = i;
+                            break;
+                        }
                     arm_asm->Operands3.append(arm.substr(ptr, len));
                     break;
                 }
@@ -506,21 +542,18 @@ void ARM_analyze::_instruction_handler(string arm)
         }
         else // ldr r1, =var
         {
-            while(arm[ptr] != '=')
+            while (arm[ptr] != '=')
                 ptr++;
             ptr++;
             len = 0;
-            for(; len + ptr < arm.length(); len++)
+            for (; len + ptr < arm.length(); len++)
             {
-                if(!( (arm[len+ptr]>='a'&&arm[len+ptr]<='z')
-                   || (arm[len+ptr]>='A'&&arm[len+ptr]<='Z')
-                   || (arm[len+ptr]>='0'&&arm[len+ptr]<='9')
-                   || arm[len+ptr]=='_') )
-                   break;
+                if (!((arm[len + ptr] >= 'a' && arm[len + ptr] <= 'z') || (arm[len + ptr] >= 'A' && arm[len + ptr] <= 'Z') || (arm[len + ptr] >= '0' && arm[len + ptr] <= '9') || arm[len + ptr] == '_'))
+                    break;
             }
-            if(len + ptr == arm.length())
+            if (len + ptr == arm.length())
                 len--;
-            string var = arm.substr(ptr, len-ptr+1);
+            string var = arm.substr(ptr, len - ptr + 1);
 
             reloc_symbol *rel = new reloc_symbol;
             rel->name = var;
@@ -529,53 +562,54 @@ void ARM_analyze::_instruction_handler(string arm)
             reloc_symbol_list.push_back(rel);
 
             arm_asm->Operands2 = "pc";
-            arm_asm->Operands3 = "-4";
-            
+            arm_asm->Operands3 = "#-4";
+
             arm_assem *arm_asm2 = new arm_assem;
             arm_asm2->op_name = "nop";
             arm_assem_list.push_back(arm_asm);
             arm_assem_list.push_back(arm_asm2);
             flag = false;
 
-            offset_text+=4;
+            offset_text += 4;
         }
-        
     }
-    else if(opera == "mul" || opera == "add" || opera == "sub")
+    else if (opera == "mul" || opera == "add" || opera == "sub")
     {
         // find op1
         int ptr = index2;
-        while(arm[ptr] != 'R' && arm[ptr] != 'r')
-            ptr++;
-        int len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
-        arm_asm->Operands1 = arm.substr(ptr, len);
+        arm_asm->Operands1 = get_next_reg(arm, ptr);
+        ptr++;
+
+        int len;
 
         // find op2
-        ptr += len;
-        while(arm[ptr] != 'R' && arm[ptr] != 'r')
-            ptr++;
-        len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
-        arm_asm->Operands2 = arm.substr(ptr, len);
+        arm_asm->Operands2 = get_next_reg(arm, ptr);
+        ptr++;
 
         // find op3
-        while(arm[ptr] != ',')
+        while (arm[ptr] != ',')
             ptr++;
         ptr++;
-        while(arm[ptr] == ' ')
+        while (arm[ptr] == ' ')
             ptr++;
-        if(arm[ptr] == 'r' || arm[ptr] == 'R') // e.g. add r1, r2, r3
+        if (arm[ptr] == 'r' || arm[ptr] == 'R' ||
+            arm[ptr] == 'p' || arm[ptr] == 'f' ||
+            arm[ptr] == 'l' || arm[ptr] == 's') // e.g. add r1, r2, r3
         {
-            len = (arm[ptr+2] >= '0' && arm[ptr+2] <= '9')? 3 : 2;
-            arm_asm->Operands3 = arm.substr(ptr, len);
+            arm_asm->Operands3 = get_next_reg(arm, ptr);
+            ptr++;
         }
-        else if(arm[ptr] == '#') //e.g. add r1, r2,  #100
+        else if (arm[ptr] == '#') //e.g. add r1, r2,  #100
         {
+            arm_asm->Operands3 = "#";
             ptr++;
-            if(arm[ptr] == '-')
-                arm_asm->Operands3 = "-";
-            ptr++;
-            for(int i = 0; ; i++)
-                if(arm[i + ptr] < '0' || arm[i + ptr] > '9')
+            if (arm[ptr] == '-')
+            {
+                arm_asm->Operands3.append("-");
+                ptr++;
+            }
+            for (int i = 0;; i++)
+                if (arm[i + ptr] < '0' || arm[i + ptr] > '9')
                 {
                     len = i;
                     break;
@@ -583,51 +617,112 @@ void ARM_analyze::_instruction_handler(string arm)
             arm_asm->Operands3.append(arm.substr(ptr, len));
         }
     }
-    else if(opera == "bl" || opera == "b" || opera == "beq" ||
-            opera == "bne" || opera == "ble" || opera == "bge" ||
-            opera == "bgt" || opera == "blt")
+    else if (opera == "bl" || opera == "b" || opera == "beq" ||
+             opera == "bne" || opera == "ble" || opera == "bge" ||
+             opera == "bgt" || opera == "blt")
     {
-        arm_asm->Operands1 = arm.substr(index2 + 1, arm.length() - index2 + 1);
+        while (arm[index2] == ' ')
+            index2++;
+        string str = arm.substr(index2, arm.length() - index2 + 1);
+        if (str.find("(PLT)") != str.npos)
+            arm_asm->Operands1 = str.substr(0, str.length() - 5);
+        else
+            arm_asm->Operands1 = str;
         arm_asm->Operands2 = to_string(offset_text);
     }
 
-    if(flag)
+    if (flag)
         arm_assem_list.push_back(arm_asm);
 }
 
 // 设计见_instruction_handler的注释
 void ARM_analyze::_lable_fixer()
 {
-    int asm_size = arm_assem_list.size();
-    int sym_size = symbol_list.size();
+    int asm_size =ARM_analyze::arm_assem_list.size();
+    int sym_size =ARM_analyze:: symbol_list.size();
 
-    for(int i = 0; i < asm_size; i++)
+    for (int i = 0; i < asm_size; i++)
     {
-        if(arm_assem_list[i]->op_name[0] == 'b') // for all jump instruction
+        if (ARM_analyze::arm_assem_list[i]->op_name[0] == 'b') // for all jump instruction
         {
-            string label = arm_assem_list[i]->Operands1; // destination
-            int asm_off = atoi(arm_assem_list[i]->Operands2.c_str()); // jump instruction's next instruction's offset
+            string label =ARM_analyze:: arm_assem_list[i]->Operands1;              // destination
+            int asm_off = atoi(ARM_analyze::arm_assem_list[i]->Operands2.c_str()); // jump instruction's next instruction's offset
             int is_filled = false;
 
-            for(int j = 0; j < sym_size; j++)
-                if(symbol_list[j]->type == 0 && symbol_list[j]->name == label && symbol_list[j]->defined == true) //find label
+            for (int j = 0; j < sym_size; j++)
+                if ((ARM_analyze::symbol_list[j]->type == 0 || ARM_analyze::symbol_list[j]->type == 3) && ARM_analyze::symbol_list[j]->name == label && ARM_analyze::symbol_list[j]->defined == true) //find label
                 {
-                    arm_assem_list[i]->Operands1 = to_string(symbol_list[j]->value - asm_off); // relative address
-                    arm_assem_list[i]->Operands2 = "";
+                    ARM_analyze::arm_assem_list[i]->Operands1 = "#" + to_string(ARM_analyze::symbol_list[j]->value - asm_off + 4); // relative address
+                    ARM_analyze::arm_assem_list[i]->Operands2 = "";
                     is_filled = true;
                 }
-            
-            if(!is_filled) // need reloc
+
+            if (!is_filled) // need reloc
             {
                 reloc_symbol *rel = new reloc_symbol;
                 rel->name = label;
                 rel->type = 0;
                 rel->value = asm_off - 4;
-                reloc_symbol_list.push_back(rel);
-                arm_assem_list[i]->Operands1 = "0";
-                arm_assem_list[i]->Operands2 = "";
+                ARM_analyze::reloc_symbol_list.push_back(rel);
+                ARM_analyze::arm_assem_list[i]->Operands1 = "0";
+                ARM_analyze::arm_assem_list[i]->Operands2 = "";
+
+                symbols *sym = new symbols();
+                sym->defined = false;
+                sym->value = 0;
+                sym->type = -1;
+                sym->name = label;
+                sym->bind = 0;
+                ARM_analyze::symbol_list.push_back(sym);
             }
         }
+    }
+}
+
+// arm 里，从 index 开始的最近一个 reg，结束后 index 在 arm 里 reg 的最后一个字符上
+string ARM_analyze::get_next_reg(string arm, int &index)
+{
+    while (arm[index] != 'r' && arm[index] != 'R' &&
+           arm[index] != 'p' && arm[index] != 'f' &&
+           arm[index] != 'l' && arm[index] != 's' &&
+           index < arm.length())
+        ++index;
+    if (index == arm.length())
+        return "ERROR";
+    if (arm[index] == 'p')
+    {
+        if (arm[++index] == 'c')
+            return "pc";
+        else
+            return "ERROR";
+    }
+    else if (arm[index] == 'f')
+    {
+        if (arm[++index] == 'p')
+            return "fp";
+        else
+            return "ERROR";
+    }
+    else if (arm[index] == 'l')
+    {
+        if (arm[++index] == 'r')
+            return "lr";
+        else
+            return "ERROR";
+    }
+    else if (arm[index] == 's')
+    {
+        if (arm[++index] == 'p')
+            return "sp";
+        else
+            return "ERROR";
+    }
+    else
+    {
+        int len = (arm[index + 2] >= '0' && arm[index + 2] <= '9') ? 3 : 2;
+        string ret = arm.substr(index, len);
+        index += (len - 1);
+        return ret;
     }
 }
 

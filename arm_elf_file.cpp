@@ -13,7 +13,7 @@ ElfFile::~ElfFile() {
 
 // 从对应文件 offset位置开始，读取size字节到buf中
 void ElfFile::getData(char *buf, Elf32_Off offset, Elf32_Word size) {
-    FILE* fp = fopen(this->elf_dir_.c_str());
+    FILE* fp = fopen(this->elf_dir_.c_str(), "rb");
     if(!fp) {
         perror("fopen");
         exit(EXIT_FAILURE);
@@ -55,8 +55,9 @@ void ElfFile::addPhdr(Elf32_Phdr *new_phdr) {
 }
 
 // 添加一个段表项
-void ElfFile::addShdr(Elf32_Shdr *new_shdr) {
-    this->shdr_tbl_.push_back(new_phdr);
+void ElfFile::addShdr(string shdr_name, Elf32_Shdr *new_shdr) {
+    this->shdr_names_.push_back(shdr_name);
+    this->shdr_tbl_[shdr_name] = new_shdr;
 }
 
 // 添加一个符号表项

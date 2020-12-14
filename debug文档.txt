@@ -1,0 +1,18 @@
+1.按照TestReloc.cpp注释中的说明编译和运行程序。目前编译是正常的。
+2.现在有用的文件：
+	elfStruct.h	截取了部分elf.h以及存放自己所声明的一些结构
+	arm_analyze.hpp	读入汇编文件，生成数据结构的类
+	genReloc.hpp	生成elf文件的类
+
+	TestAnalyze.cpp	单独测试读入汇编文件是否正常
+	TestReloc.cpp	测试elf文件生成是否正常
+
+	asm.s	目前用来测试的汇编输入
+3.段错误初步排查主要是cur_sec_no和section_info_list.size()没有对应起来。
+
+Question:
+
+ml:
+	1. 如果在genFile()时才考虑对齐问题，可能导致shdr中对应的sh_offset矛盾（对其之后偏移量改变），我感觉
+	最好是生成时就考虑把section内容进行对其，并设置好对应的offset、size等，section_info_list是否可以增加
+	个offset？
