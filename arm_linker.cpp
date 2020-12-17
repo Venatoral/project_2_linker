@@ -1,12 +1,11 @@
 #include "./inc/arm_linker.hpp"
 /**
- * 1.ARM Linux 64位起始虚拟地址：0xFFFFFE0000000000  
+ * 1. 起始地址 0x08040000  
  * 2.（内存）页对齐：4096字节
  * 3. .text代码段对齐：16字节，其他4字节
  * */
 
-#define BASE_ADDR 0xFFFFFE0000000000
-#define TEXT_ALIGN 16
+#define BASE_ADDR 0x08040000
 #define DESC_ALIGN 4
 #define MEM_ALIGN 4096
 
@@ -62,7 +61,21 @@ void Linker::allocAddr() {
 
 // 符号解析，原地计算定义和未定义的符号虚拟地址 (解析先解析已定义符号，然后未定义符号)
 void Linker::parseSym() {
-
+    // 解析以定义符号
+    printf("解析定义符号...\n");
+    for(SymLink* s: sym_def) {
+        Elf32_Sym* sym = s->prov_->sym_tbl_[s->sym_name_];
+        string seg_name = s->prov_->shdr_names_[sym->st_shndx];
+        sym->st_value += s->prov_->shdr_tbl_[seg_name]->sh_offset;
+        printf("name: %s, addr: %8x\n", s->sym_name_.c_str(), sym->st_value);
+    }
+    printf("解析未定义UND符号...\n");
+    for(SymLink* s: sym_ref) {
+        Elf32_Sym* def_sym = s->prov_->sym_tbl_[s->sym_name_];
+        Elf32_Sym* ref_sym = s->recv_->sym_tbl_[s->sym_name_];
+        ref_sym->st_value = def_sym->st_value;
+        printf("UND name: %s, addr: %8x\n", s->sym_name_, ref_sym->st_value);
+    }
 }
 
 
