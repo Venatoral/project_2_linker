@@ -33,7 +33,20 @@ void SegList::allocAddr(string name, unsigned int &base, unsigned int &off) {
     Todo: 根据rel_addr寻找对应block的‘data’中的位置，并根据方式type（绝对，将对）和符号地址sym_addr来修改地址。
 */
 void SegList::relocAddr(unsigned int rel_addr, unsigned char type, unsigned int sym_addr) {
+    int off = rel_addr - baseAddr_;
+    int block_num = blocks.size();
+    int block_idx = 0;
+    for(; block_idx < block_num; block_idx++) {
+        if(off >= blocks[block_idx]->offset_ 
+            && off < blocks[block_idx]->offset_ + blocks[block_idx]->size_)
+            break;
+    }
 
+    unsigned char *pdata = (unsigned char *) ( blocks[block_idx]->data_ + (off - blocks[block_idx]->offset_) );
+    if(type = 7) {  //R_386_JMP_SLOT
+        
+
+    }
 }
 
 
@@ -81,7 +94,25 @@ void Linker::parseSym() {
 
 // 符号重定位，根据所有目标文件的重定位项修正符号地址
 void Linker::relocate() {
+    int elf_num = elfs.size();
+    for(int i = 0; i < elf_num; i++) {
+        ElfFile *elf = elfs[i];
+        
+        int rel_num = elf->rel_tbl_.size();
+        for(int j = 0; j < rel_num; j++) {
+            RelItem *rel = elf->rel_tbl_[j];
 
+            Elf32_Shdr *seg = elf->shdr_tbl_[rel->seg_name_];
+            unsigned int rel_addr = seg->sh_addr + rel->rel_->r_offset;
+
+            Elf32_Sym *sym = elf->sym_tbl_[rel->rel_name_];
+            unsigned int sym_addr = sym->st_value;
+
+            unsigned char type = (unsigned char) rel->rel_->r_info;
+
+            seg_lists_[rel->seg_name_]->relocAddr(rel_addr, type, sym_addr);
+        }
+    }
 }
 
 
