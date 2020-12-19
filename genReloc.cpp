@@ -612,7 +612,15 @@ void RelocatableFile::genSectionReloc()
             if (reloc_symbol_list[i]->name == symbol_list[j]->name)
                 break;
         }
-        r->r_info = j << 8; //ELF32_R_SYM(i)的逆过程
+        //change here
+        int rawinfo = 0;
+        for (a = 0; a <= j; a++) {
+            rawinfo = rawinfo+ARM_analyze::symbol_list[i]->name.length();
+        }
+
+            //
+        //r->r_info = j << 8; //ELF32_R_SYM(i)的逆过程
+        r->r_info=rawinfo;//change method
         r->r_offset = reloc_symbol_list[i]->value;
 
         if (reloc_symbol_list[i]->type == 0)
