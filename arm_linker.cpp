@@ -43,9 +43,17 @@ void SegList::relocAddr(unsigned int rel_addr, unsigned char type, unsigned int 
     }
 
     unsigned char *pdata = (unsigned char *) ( blocks[block_idx]->data_ + (off - blocks[block_idx]->offset_) );
-    if(type = 7) {  //R_386_JMP_SLOT
-        
-
+    if(type == 7) {  // R_386_JMP_SLOT, 需要注意这个地方只需要修改跳转指令的后3个字节
+        int delta = sym_addr - rel_addr - 4;    // 跳转的距离
+        pdata ++;
+        *pdata = (unsigned char)(delta % 0x100);
+        pdata ++;
+        *pdata = (unsigned char)((delta >> 8) % 0x100);
+        pdata ++;
+        *pdata = (unsigned char)((delta >> 16) % 0x100);
+    }
+    else if(type == 6) { // R_386_GLOB_DAT
+        *(unsigned int *)pdata = sym_addr;
     }
 }
 
