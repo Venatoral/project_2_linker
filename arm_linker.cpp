@@ -124,7 +124,66 @@ void Linker::makeExec() {
 
 // 输出elf
 void Linker::writeExecFile(const char *dir) {
+// 打开文件
+    FILE* fp = fopen("elf.exe", "wb");//这里先特殊规定一个名字
+    if (!fp)
+    {
+        perror("fopen");
+        cout << "write error" << ednl;
+        exit(EXIT_FAILURE);
+    }
+    //输出文件头
+    fwrite(&this->elf_exe_.ehdr_, sizeof(Elf32_Ehdr), 1, fp);
 
+    // 输出节区头
+    
+    map<string, Elf32_Shdr*>::iterator hiter;
+    hiter = this->elf_exe_.shdr_tbl_.begin();
+    while (hiter != this->shdr_tbl_.end()) {
+        Elf32_Shdr* shdr = new  Elf32_Shdr ();
+        shdr = hiter->second;
+        fwrite(shdr, sizeof(Elf32_Ehdr), 1, fp);
+
+    }
+    
+    // 输出节区
+    //先根据seglists输出所有的数据区
+    map<string, SegList*>::iterator iter;
+    iter = this->seg_lists_.begin();
+
+    while (iter != this->seg_lists_.end()) {
+        SegList* seg = new SegList();
+        seg = iter->second;
+        vector<Block*> b = seg->blocks;
+        for (int i = 0; i < b.size(); i++) {
+            Block* w = new Block();
+            w = b[i];
+            fwrite(w->data_, w->size_, 1, fp);
+        }
+
+    }
+    //再输出elf_exe中剩下的节区，主要是符号表、重定位表、shstrtab、strtab
+    //符号表
+    map<string, Elf32_Sym*>::iterator symiter;
+    symiter = this->elf_exe_.sym_tbl_.begin();
+
+    while (symiter != this->elf_exe_.sym_tbl_.end()) {
+        Elf32_Sym* su = new  Elf32_Sym ();
+        su = symiter->second;
+        fwrite(su, su->st_size, 1, fp);
+    }
+    //shstrtab
+    fwrite(&this->elf_exe_.shstrtab_, this->elf_exe_.shstrtab_.length(), 1, fp);
+    //strtab
+    fwrite(&this->elf_exe_.strtab_, this->elf_exe_.strtab_.length(), 1, fp);
+    //重定位表
+    vector<RelItem*> f = this->elf_exe_.rel_tbl_;
+    for (int i = 0; i < f.size(); i++) {
+        Elf32_Rel* r = new Elf32_Rel();
+        r = f[i];
+        fwrite(r, sizeof(Elf32_Rel), 1, fp);
+    }
+    fclose(fp);
 }
 
 
