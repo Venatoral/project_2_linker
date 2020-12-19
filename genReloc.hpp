@@ -745,6 +745,8 @@ void RelocatableFile::genSectionStrtab()
     strtab->name = ".strtab";
     strtab->content = strtabContent;
     strtab->size = strtabContentSize;
+    section_info_list.push_back(strtab);
+
 }
 
 //lt
