@@ -22,8 +22,51 @@ vector<SymLink *> sym_def;
 	off: 文件偏移地址
 	base: 加载基址，修改后提供给其他段
 */
-void SegList::allocAddr(string name, unsigned int &base, unsigned int &off) {
+void SegList::allocAddr(string name, unsigned int &base, unsigned int &off)
+{
+    begin_ = off; //记录对齐前偏移
 
+    //虚拟地址对齐，让所有的段按照4k字节对齐
+    if (name != ".bss") //.bss段直接紧跟上一个段，一般是.data,因此定义处理段时需要将.data和.bss放在最后
+        base += (MEM_ALIGN - base % MEM_ALIGN) % MEM_ALIGN;
+
+    //偏移地址按4字节对齐
+    off += (DESC_ALIGN - off % DESC_ALIGN) % DESC_ALIGN;
+
+    //使虚址和偏移按照4k模同余
+    base = base - base % MEM_ALIGN + off % MEM_ALIGN;
+
+    baseAddr_ = base;
+    offset_ = off;
+    size_ = 0;
+
+    //累加段的大小，填充段的数据
+    for (int i = 0; i < owner_list_.size(); ++i)
+    {
+        size_ += (DESC_ALIGN - size_ % DESC_ALIGN) % DESC_ALIGN; //对齐每个小段，按照4字节
+
+        Elf32_Shdr *seg = owner_list_[i]->shdr_tbl_[name];
+        //读取需要合并段的数据
+        if (name != ".bss")
+        {
+            char *buf = new char[seg->sh_size];                         //申请数据缓存
+            owner_list_[i]->getData(buf, seg->sh_offset, seg->sh_size); //读取数据
+
+            Block *bloc = new Block();
+            bloc->data_ = buf;
+            bloc->offset_ = size_;
+            bloc->size_ = seg->sh_size;
+            blocks.push_back(bloc); //记录数据，对于.bss段数据是空的，不能重定位！没有common段！！！
+        }
+
+        //修改每个文件中对应段的addr
+        seg->sh_addr = base + size_; //修改每个文件的段虚拟，为了方便计算符号或者重定位的虚址，不需要保存合并后文件偏移
+        size_ += seg->sh_size;       //累加段大小
+    }
+
+    base += size_;      //累加基址
+    if (name != ".bss") //.bss段不修改偏移
+        off += size_;
 }
 
 /*
@@ -75,8 +118,15 @@ void Linker::collectInfo() {
 
 
 // 分配地址空间，重新计算虚拟地址空间，磁盘空间连续分布不重新计算，其他的段全部删除
-void Linker::allocAddr() {
+void Linker::allocAddr()
+{
+    unsigned int curAddr = BASE_ADDR;                  //当前加载基址
+    unsigned int curOff = 52 + 32 * seg_names_.size(); //默认文件偏移,PHT保留.bss段
 
+    for (int i = 0; i < seg_names_.size(); ++i) //按照类型分配地址，不紧邻.data与.bss段
+    {
+        seg_list[seg_names_[i]]->allocAddr(seg_names_[i], curAddr, curOff); //自动分配
+    }
 }
 
 
