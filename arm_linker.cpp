@@ -113,8 +113,97 @@ void Linker::addElf(const char *dir)
 }
 
 // 搜集段信息和符号关联信息
-void Linker::collectInfo()
-{
+void Linker::collectInfo() {
+    ElfFile *elf_file;
+    string curSecName,curSymName;
+    Elf32_Shdr *shdr;
+    Elf32_Sym *sym;
+    Block *block;
+    SymLink *symLink;
+
+    //三个段？
+    SegList *segText=new SegList();
+    SegList *segData=new SegList();
+    SegList *segBss=new SegList();
+    seg_lists_.insert(pair<string,SegList *>(".text",segText));
+    seg_lists_.insert(pair<string,SegList *>(".data",segData));
+    seg_lists_.insert(pair<string,SegList *>(".bss",segBss));
+
+    
+
+    //收集所有elf类[elfs]的信息（段信息[seg_lists]、符号关联信息[sym_links,sym_def]）
+    for(int i=0;i<this->elfs.size();i++){
+        elf_file=elfs[i];
+        //段信息
+        for(int j=0;j<elf_file->shdr_names_.size();j++){
+            curSecName=elf_file->shdr_names_[j];
+            shdr=elf_file->shdr_tbl_[curSecName];
+
+            if(curSecName==".text"){//插入segText
+                //填写新的数据块block 准备插入到segText->blocks中
+                block=new Block();
+                block->data_;//没有指针信息哇
+                block->offset_=shdr->sh_offset;//文件内的偏移
+                block->size_=shdr->sh_size;
+
+                //由于加入了新的文件elf_file存在text节
+                //所以保存text段的segText需要增加这一段
+                //需要改text段的总大小
+                //需要加入新的文件结构指针和数据块指针
+                segText->baseAddr_;//这三项
+                segText->begin_;//不该
+                segText->offset_;//现在填吧
+                segText->size_+=shdr->sh_size;
+                segText->owner_list_.push_back(elf_file);
+                segText->blocks.push_back(block);
+            }
+            else if(curSecName==".data"){//插入segData
+                block=new Block();
+                block->data_;
+                block->offset_=shdr->sh_offset;//文件内的偏移
+                block->size_=shdr->sh_size;
+                segData->baseAddr_;//这三项
+                segData->begin_;//不该
+                segData->offset_;//现在填吧
+                segData->size_+=shdr->sh_size;
+                segData->owner_list_.push_back(elf_file);
+                segData->blocks.push_back(block);
+            }
+            else if(curSecName==".bss"){//插入segBss
+                block=new Block();
+                block->data_;
+                block->offset_=shdr->sh_offset;//文件内的偏移
+                block->size_=shdr->sh_size;
+                segBss->baseAddr_;//这三项
+                segBss->begin_;//不该
+                segBss->offset_;//现在填吧
+                segBss->size_+=shdr->sh_size;
+                segBss->owner_list_.push_back(elf_file);
+                segBss->blocks.push_back(block);
+            }
+            else{//其他节区不处理
+                ;
+            }
+        }
+        //符号信息
+        for(int j=0;j<elf_file->sym_names_.size();j++){
+            curSymName=elf_file->sym_names_[j];
+            sym=elf_file->sym_tbl_[curSymName];
+
+            symLink=new SymLink();
+            symLink->sym_name_=curSymName;
+            if(sym->st_shndx==SHN_UNDEF){//未定义的符号
+                symLink->prov_=NULL;
+                symLink->recv_=elf_file;//可以确定的是当前文件引用了该符号
+            }
+            else{//自己定义
+            //question:需要区分局部符号、全局符号、弱符号吗
+                symLink->prov_=elf_file;
+                symLink->recv_=elf_file;
+            }
+            sym_links_.push_back(symLink);
+        }
+    }
 }
 
 // 分配地址空间，重新计算虚拟地址空间，磁盘空间连续分布不重新计算，其他的段全部删除
@@ -244,10 +333,9 @@ void Linker::makeExec()
 }
 
 // 输出elf
-void Linker::writeExecFile(const char *dir)
-{
-    // 打开文件
-    FILE *fp = fopen("elf.exe", "wb"); //这里先特殊规定一个名字
+void Linker::writeExecFile(const char *dir) {
+// 打开文件
+    FILE* fp = fopen("elf.o", "wb");//这里先特殊规定一个名字
     if (!fp)
     {
         perror("fopen");
