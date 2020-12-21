@@ -183,7 +183,7 @@ void Linker::makeExec() {
 // 输出elf
 void Linker::writeExecFile(const char *dir) {
 // 打开文件
-    FILE* fp = fopen("elf.exe", "wb");//这里先特殊规定一个名字
+    FILE* fp = fopen("elf.o", "wb");//这里先特殊规定一个名字
     if (!fp)
     {
         perror("fopen");
