@@ -79,7 +79,7 @@ ElfFile::ElfFile(const char* file_dir_) {
                 end++;
             }
             if (count == need - 1 && stringres[k] == '\0') {
-                end++；//最后一个/0赋好了
+                end++; //最后一个/0赋好了
                 break;
             }
         }
@@ -121,7 +121,7 @@ ElfFile::ElfFile(const char* file_dir_) {
 
 
                 this->sym_names_.push_back(na);//符号名字表插入
-                this->sym_tbl_.insert(pair<string, Elf32_Sym*>(na, l))//符号表
+                this->sym_tbl_.insert(pair<string, Elf32_Sym*>(na, l));//符号表
 
             }
         }

@@ -16,7 +16,6 @@ vector<SymLink *> sym_ref;
 // 符号定义信息
 vector<SymLink *> sym_def;
 
-
 /*
 	name: 段名
 	off: 文件偏移地址
@@ -75,47 +74,48 @@ void SegList::allocAddr(string name, unsigned int &base, unsigned int &off)
 	sym_addr:重定位符号的虚拟地址
     Todo: 根据rel_addr寻找对应block的‘data’中的位置，并根据方式type（绝对，将对）和符号地址sym_addr来修改地址。
 */
-void SegList::relocAddr(unsigned int rel_addr, unsigned char type, unsigned int sym_addr) {
+void SegList::relocAddr(unsigned int rel_addr, unsigned char type, unsigned int sym_addr)
+{
     int off = rel_addr - baseAddr_;
     int block_num = blocks.size();
     int block_idx = 0;
-    for(; block_idx < block_num; block_idx++) {
-        if(off >= blocks[block_idx]->offset_ 
-            && off < blocks[block_idx]->offset_ + blocks[block_idx]->size_)
+    for (; block_idx < block_num; block_idx++)
+    {
+        if (off >= blocks[block_idx]->offset_ && off < blocks[block_idx]->offset_ + blocks[block_idx]->size_)
             break;
     }
 
-    unsigned char *pdata = (unsigned char *) ( blocks[block_idx]->data_ + (off - blocks[block_idx]->offset_) );
-    if(type == 7) {  // R_386_JMP_SLOT, 需要注意这个地方只需要修改跳转指令的后3个字节
-        int delta = sym_addr - rel_addr - 4;    // 跳转的距离
-        pdata ++;
+    unsigned char *pdata = (unsigned char *)(blocks[block_idx]->data_ + (off - blocks[block_idx]->offset_));
+    if (type == 7)
+    {                                        // R_386_JMP_SLOT, 需要注意这个地方只需要修改跳转指令的后3个字节
+        int delta = sym_addr - rel_addr - 4; // 跳转的距离
+        pdata++;
         *pdata = (unsigned char)(delta % 0x100);
-        pdata ++;
+        pdata++;
         *pdata = (unsigned char)((delta >> 8) % 0x100);
-        pdata ++;
+        pdata++;
         *pdata = (unsigned char)((delta >> 16) % 0x100);
     }
-    else if(type == 6) { // R_386_GLOB_DAT
+    else if (type == 6)
+    { // R_386_GLOB_DAT
         *(unsigned int *)pdata = sym_addr;
     }
 }
-
 
 /**
  * 添加一个目标文件
  * Todo: 构造ElfFile对象，添加到list中
  * */
-void Linker::addElf(const char *dir) {
-    ElfFile* elf = new ElfFile(dir);
+void Linker::addElf(const char *dir)
+{
+    ElfFile *elf = new ElfFile(dir);
     this->elfs.push_back(elf);
 }
 
-
 // 搜集段信息和符号关联信息
-void Linker::collectInfo() {
-
+void Linker::collectInfo()
+{
 }
-
 
 // 分配地址空间，重新计算虚拟地址空间，磁盘空间连续分布不重新计算，其他的段全部删除
 void Linker::allocAddr()
@@ -129,35 +129,39 @@ void Linker::allocAddr()
     }
 }
 
-
 // 符号解析，原地计算定义和未定义的符号虚拟地址 (解析先解析已定义符号，然后未定义符号)
-void Linker::parseSym() {
+void Linker::parseSym()
+{
     // 解析以定义符号
     printf("解析定义符号...\n");
-    for(SymLink* s: sym_def) {
-        Elf32_Sym* sym = s->prov_->sym_tbl_[s->sym_name_];
+    for (SymLink *s : sym_def)
+    {
+        Elf32_Sym *sym = s->prov_->sym_tbl_[s->sym_name_];
         string seg_name = s->prov_->shdr_names_[sym->st_shndx];
         sym->st_value += s->prov_->shdr_tbl_[seg_name]->sh_offset;
         printf("name: %s, addr: %8x\n", s->sym_name_.c_str(), sym->st_value);
     }
     printf("解析未定义UND符号...\n");
-    for(SymLink* s: sym_ref) {
-        Elf32_Sym* def_sym = s->prov_->sym_tbl_[s->sym_name_];
-        Elf32_Sym* ref_sym = s->recv_->sym_tbl_[s->sym_name_];
+    for (SymLink *s : sym_ref)
+    {
+        Elf32_Sym *def_sym = s->prov_->sym_tbl_[s->sym_name_];
+        Elf32_Sym *ref_sym = s->recv_->sym_tbl_[s->sym_name_];
         ref_sym->st_value = def_sym->st_value;
         printf("UND name: %s, addr: %8x\n", s->sym_name_, ref_sym->st_value);
     }
 }
 
-
 // 符号重定位，根据所有目标文件的重定位项修正符号地址
-void Linker::relocate() {
+void Linker::relocate()
+{
     int elf_num = elfs.size();
-    for(int i = 0; i < elf_num; i++) {
+    for (int i = 0; i < elf_num; i++)
+    {
         ElfFile *elf = elfs[i];
-        
+
         int rel_num = elf->rel_tbl_.size();
-        for(int j = 0; j < rel_num; j++) {
+        for (int j = 0; j < rel_num; j++)
+        {
             RelItem *rel = elf->rel_tbl_[j];
 
             Elf32_Shdr *seg = elf->shdr_tbl_[rel->seg_name_];
@@ -166,24 +170,84 @@ void Linker::relocate() {
             Elf32_Sym *sym = elf->sym_tbl_[rel->rel_name_];
             unsigned int sym_addr = sym->st_value;
 
-            unsigned char type = (unsigned char) rel->rel_->r_info;
+            unsigned char type = (unsigned char)rel->rel_->r_info;
 
             seg_lists_[rel->seg_name_]->relocAddr(rel_addr, type, sym_addr);
         }
     }
 }
 
-
 // 组装可执行文件
-void Linker::makeExec() {
-
+void Linker::makeExec()
+{
+    int *p_id = (int *)elf_exe_.ehdr_.e_ident;
+    //魔数填充
+    *p_id = 0x464c457f;
+    p_id++;
+    *p_id = 0x010101;
+    p_id++;
+    *p_id = 0;
+    p_id++;
+    *p_id = 0;
+    elf_exe_.ehdr_.e_type = ET_EXEC;
+    elf_exe_.ehdr_.e_machine = EM_386;
+    elf_exe_.ehdr_.e_version = EV_CURRENT;
+    elf_exe_.ehdr_.e_flags = 0;
+    elf_exe_.ehdr_.e_ehsize = 52;
+    unsigned int curOff = 52 + 32 * seg_names_.size();
+    Elf32_Shdr *pshdr = new Elf32_Shdr();
+    pshdr->sh_addr = 0;
+    pshdr->sh_addralign = 0;
+    pshdr->sh_entsize = 0;
+    pshdr->sh_flags = 0;
+    pshdr->sh_info = 0;
+    pshdr->sh_link = 0;
+    pshdr->sh_name = 0;
+    pshdr->sh_offset = 0;
+    pshdr->sh_size = 0;
+    pshdr->sh_type = 0;
+    elf_exe_.addShdr("", pshdr);
+    int shstrtabSize = 26;
+    for (auto segName : seg_names_)
+    {
+        string name = segName;
+        shstrtabSize += name.size() + 1;
+        Elf32_Word flags = PF_W | PF_R;
+        Elf32_Word filesz = seg_lists_[name]->size_;
+        if (name == ".text")
+            flags = PF_W | PF_R;
+        if (name == ".bss")
+            filesz = 0;
+        Elf32_Phdr *pphdr = new Elf32_Phdr();
+        pphdr->p_type = PT_LOAD;
+        pphdr->p_offset = seg_lists_[name]->offset_;
+        pphdr->p_vaddr = seg_lists_[name]->baseAddr_;
+        pphdr->p_filesz = filesz;
+        pphdr->p_flags = flags;
+        pphdr->p_memsz = seg_lists_[name]->size_;
+        pphdr->p_align = MEM_ALIGN;
+        elf_exe_.addPhdr(pphdr);
+        curOff = seg_lists_[name]->offset_;
+        Elf32_Word sh_type = SHT_PROGBITS;
+        Elf32_Word sh_flags = SHF_ALLOC | SHF_WRITE;
+        Elf32_Word sh_align = 4;
+        if (name == ".bss")
+            sh_type = SHT_NOBITS;
+        if (name == ".text")
+        {
+            sh_flags = SHF_ALLOC | SHF_EXECINSTR;
+            sh_align = 16;
+        }
+        
+    }
+    //还没写完 有待补充……
 }
 
-
 // 输出elf
-void Linker::writeExecFile(const char *dir) {
-// 打开文件
-    FILE* fp = fopen("elf.exe", "wb");//这里先特殊规定一个名字
+void Linker::writeExecFile(const char *dir)
+{
+    // 打开文件
+    FILE *fp = fopen("elf.exe", "wb"); //这里先特殊规定一个名字
     if (!fp)
     {
         perror("fopen");
@@ -194,39 +258,41 @@ void Linker::writeExecFile(const char *dir) {
     fwrite(&this->elf_exe_.ehdr_, sizeof(Elf32_Ehdr), 1, fp);
 
     // 输出节区头
-    
-    map<string, Elf32_Shdr*>::iterator hiter;
+
+    map<string, Elf32_Shdr *>::iterator hiter;
     hiter = this->elf_exe_.shdr_tbl_.begin();
-    while (hiter != this->shdr_tbl_.end()) {
-        Elf32_Shdr* shdr = new  Elf32_Shdr ();
+    while (hiter != this->shdr_tbl_.end())
+    {
+        Elf32_Shdr *shdr = new Elf32_Shdr();
         shdr = hiter->second;
         fwrite(shdr, sizeof(Elf32_Ehdr), 1, fp);
-
     }
-    
+
     // 输出节区
     //先根据seglists输出所有的数据区
-    map<string, SegList*>::iterator iter;
+    map<string, SegList *>::iterator iter;
     iter = this->seg_lists_.begin();
 
-    while (iter != this->seg_lists_.end()) {
-        SegList* seg = new SegList();
+    while (iter != this->seg_lists_.end())
+    {
+        SegList *seg = new SegList();
         seg = iter->second;
-        vector<Block*> b = seg->blocks;
-        for (int i = 0; i < b.size(); i++) {
-            Block* w = new Block();
+        vector<Block *> b = seg->blocks;
+        for (int i = 0; i < b.size(); i++)
+        {
+            Block *w = new Block();
             w = b[i];
             fwrite(w->data_, w->size_, 1, fp);
         }
-
     }
     //再输出elf_exe中剩下的节区，主要是符号表、重定位表、shstrtab、strtab
     //符号表
-    map<string, Elf32_Sym*>::iterator symiter;
+    map<string, Elf32_Sym *>::iterator symiter;
     symiter = this->elf_exe_.sym_tbl_.begin();
 
-    while (symiter != this->elf_exe_.sym_tbl_.end()) {
-        Elf32_Sym* su = new  Elf32_Sym ();
+    while (symiter != this->elf_exe_.sym_tbl_.end())
+    {
+        Elf32_Sym *su = new Elf32_Sym();
         su = symiter->second;
         fwrite(su, su->st_size, 1, fp);
     }
@@ -235,19 +301,20 @@ void Linker::writeExecFile(const char *dir) {
     //strtab
     fwrite(&this->elf_exe_.strtab_, this->elf_exe_.strtab_.length(), 1, fp);
     //重定位表
-    vector<RelItem*> f = this->elf_exe_.rel_tbl_;
-    for (int i = 0; i < f.size(); i++) {
-        Elf32_Rel* r = new Elf32_Rel();
+    vector<RelItem *> f = this->elf_exe_.rel_tbl_;
+    for (int i = 0; i < f.size(); i++)
+    {
+        Elf32_Rel *r = new Elf32_Rel();
         r = f[i];
         fwrite(r, sizeof(Elf32_Rel), 1, fp);
     }
     fclose(fp);
 }
 
-
 // 链接（其实就是顺序调用了上述过程)
 // dir : 输出可执行文件的地址
-bool Linker::link(const char *dir) {
+bool Linker::link(const char *dir)
+{
     // 收集信息
     collectInfo();
     // 分配地址空间
@@ -259,5 +326,5 @@ bool Linker::link(const char *dir) {
     // 生成可执行文件
     makeExec();
     // 输出可执行文件到dir
-    writeExecFile(dir);   
+    writeExecFile(dir);
 }

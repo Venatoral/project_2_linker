@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <string>
 #include <vector>
+#include <elf.h>
 typedef uint16_t Elf32_Half;
 typedef uint32_t Elf32_Word;
 typedef	int32_t  Elf32_Sword;
