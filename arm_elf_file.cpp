@@ -1,4 +1,4 @@
-#include "inc/arm_linker.hpp"
+#include "./inc/arm_linker.hpp"
 // 输出ElfFile信息到指定文件
 
 // 构造函数，从file_dir_读取文件，构造ElfFile对象
