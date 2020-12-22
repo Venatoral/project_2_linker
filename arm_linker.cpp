@@ -9,12 +9,6 @@
 #define DESC_ALIGN 4
 #define MEM_ALIGN 4096
 
-// 合并段列表
-map<string, SegList *> seg_list;
-// 符号引用信息
-vector<SymLink *> sym_ref;
-// 符号定义信息
-vector<SymLink *> sym_def;
 
 /*
 	name: 段名
@@ -415,4 +409,13 @@ bool Linker::link(const char *dir)
     makeExec();
     // 输出可执行文件到dir
     writeExecFile(dir);
+}
+
+Linker::Linker() {
+    this->seg_names_.push_back(".text");
+    this->seg_names_.push_back(".data");
+    this->seg_names_.push_back(".bss");
+    for(int i = 0; i < this->seg_names_.size(); i++) {
+        this->seg_lists_[this->seg_names_[i]] = new SegList();
+    }
 }

@@ -8,7 +8,7 @@
 #include <iostream>
 #include <map>
 
-#include "elfStruct.h"
+#include "./elf_struct.h"
 
 using namespace std;
 

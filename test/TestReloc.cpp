@@ -3,9 +3,9 @@ compile and run:
 clang++ -std=c++17 -O2 -lm TestReloc.cpp -o testreloc
 ./testreloc arm.s result2.txt
 **/
-#include "elfStruct.h"
-#include "arm_analyze.hpp"
-#include "genReloc.hpp"
+#include "../inc/arm_linker.hpp"
+#include "../inc/arm_analyze.hpp"
+#include "../inc/gen_reloc.hpp"
 
 #include <string>
 #include <fstream>

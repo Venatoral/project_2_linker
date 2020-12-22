@@ -4,7 +4,7 @@
    ./compiler arm.s result.txt
  * */
 
-#include "arm_analyze.hpp"
+#include "../inc/arm_analyze.hpp"
 #include <string>
 #include <fstream>
 #include <sstream>

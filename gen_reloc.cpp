@@ -4,7 +4,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <map>
-#include "elfStruct.h"
+#include "./inc/elf_struct.h"
 using namespace std;
 
 class RelocatableFile

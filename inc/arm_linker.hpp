@@ -1,6 +1,6 @@
 #ifndef INC_ARM_LINKER_HPP
 #define INC_ARM_LINKER_HPP
-#include "../elfStruct.h"
+#include "./elf_struct.h"
 #include <map>
 #include <vector>
 #include <string>
@@ -14,7 +14,6 @@ using namespace std;
 * 5. Linker::makeExec                          组装可执行文件EilfFile对象 zyj
 * 6. Linker::writeExec + ElfFile               构造函数ElfFile读取Elf文件 + 写可执行文件 nzb
 **/
-
 
 // Elf文件类
 class ElfFile {
@@ -36,13 +35,14 @@ public:
     vector<RelItem *> rel_tbl_;
     string shstrtab_;
     string strtab_;
+
 public:
-    ElfFile(const char* file_dir_);
+    ElfFile(const char *file_dir_);
     void getData(char *buf, Elf32_Off offset, Elf32_Word size); //读取数据
-    int getSegIndex(string seg_name);                            //获取指定段名在段表下标
-    int getSymIndex(string sym_name);                            //获取指定符号名在符号表下标
+    int getSegIndex(string seg_name);                           //获取指定段名在段表下标
+    int getSymIndex(string sym_name);                           //获取指定符号名在符号表下标
     void addPhdr(Elf32_Phdr *new_phdr);                         //添加程序头表项
-    void addShdr(string shdr_name, Elf32_Shdr *new_shdr);                         //添加一个段表项
+    void addShdr(string shdr_name, Elf32_Shdr *new_shdr);       //添加一个段表项
     void addSym(string st_name, Elf32_Sym *);                   //添加一个符号表项
     ~ElfFile();
 };
@@ -104,6 +104,12 @@ class Linker {
     vector<string> seg_names_; //链接关心的段(.text, ,data, .bss)
     ElfFile elf_exe_;          //链接后的输出文件
     ElfFile *start_owner_;     //拥有全局符号START/_start的文件
+
+    // 符号引用信息
+    vector<SymLink *> sym_ref;
+    // 符号定义信息
+    vector<SymLink *> sym_def;
+
 public:
     vector<ElfFile *> elfs;            //所有目标文件对象
     map<string, SegList *> seg_lists_; //所有合并段表序列
