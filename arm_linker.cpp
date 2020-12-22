@@ -107,93 +107,101 @@ void Linker::addElf(const char *dir)
 }
 
 // 搜集段信息和符号关联信息
-void Linker::collectInfo() {
+void Linker::collectInfo()
+{
     ElfFile *elf_file;
-    string curSecName,curSymName;
+    string curSecName, curSymName;
     Elf32_Shdr *shdr;
     Elf32_Sym *sym;
     Block *block;
     SymLink *symLink;
 
     //三个段？
-    SegList *segText=new SegList();
-    SegList *segData=new SegList();
-    SegList *segBss=new SegList();
-    seg_lists_.insert(pair<string,SegList *>(".text",segText));
-    seg_lists_.insert(pair<string,SegList *>(".data",segData));
-    seg_lists_.insert(pair<string,SegList *>(".bss",segBss));
-
-    
+    SegList *segText = new SegList();
+    SegList *segData = new SegList();
+    SegList *segBss = new SegList();
+    seg_lists_.insert(pair<string, SegList *>(".text", segText));
+    seg_lists_.insert(pair<string, SegList *>(".data", segData));
+    seg_lists_.insert(pair<string, SegList *>(".bss", segBss));
 
     //收集所有elf类[elfs]的信息（段信息[seg_lists]、符号关联信息[sym_links,sym_def]）
-    for(int i=0;i<this->elfs.size();i++){
-        elf_file=elfs[i];
+    for (int i = 0; i < this->elfs.size(); i++)
+    {
+        elf_file = elfs[i];
         //段信息
-        for(int j=0;j<elf_file->shdr_names_.size();j++){
-            curSecName=elf_file->shdr_names_[j];
-            shdr=elf_file->shdr_tbl_[curSecName];
+        for (int j = 0; j < elf_file->shdr_names_.size(); j++)
+        {
+            curSecName = elf_file->shdr_names_[j];
+            shdr = elf_file->shdr_tbl_[curSecName];
 
-            if(curSecName==".text"){//插入segText
+            if (curSecName == ".text")
+            { //插入segText
                 //填写新的数据块block 准备插入到segText->blocks中
-                block=new Block();
-                block->data_;//没有指针信息哇
-                block->offset_=shdr->sh_offset;//文件内的偏移
-                block->size_=shdr->sh_size;
+                block = new Block();
+                block->data_;                     //没有指针信息哇
+                block->offset_ = shdr->sh_offset; //文件内的偏移
+                block->size_ = shdr->sh_size;
 
                 //由于加入了新的文件elf_file存在text节
                 //所以保存text段的segText需要增加这一段
                 //需要改text段的总大小
                 //需要加入新的文件结构指针和数据块指针
-                segText->baseAddr_;//这三项
-                segText->begin_;//不该
-                segText->offset_;//现在填吧
-                segText->size_+=shdr->sh_size;
+                segText->baseAddr_; //这三项
+                segText->begin_;    //不该
+                segText->offset_;   //现在填吧
+                segText->size_ += shdr->sh_size;
                 segText->owner_list_.push_back(elf_file);
                 segText->blocks.push_back(block);
             }
-            else if(curSecName==".data"){//插入segData
-                block=new Block();
+            else if (curSecName == ".data")
+            { //插入segData
+                block = new Block();
                 block->data_;
-                block->offset_=shdr->sh_offset;//文件内的偏移
-                block->size_=shdr->sh_size;
-                segData->baseAddr_;//这三项
-                segData->begin_;//不该
-                segData->offset_;//现在填吧
-                segData->size_+=shdr->sh_size;
+                block->offset_ = shdr->sh_offset; //文件内的偏移
+                block->size_ = shdr->sh_size;
+                segData->baseAddr_; //这三项
+                segData->begin_;    //不该
+                segData->offset_;   //现在填吧
+                segData->size_ += shdr->sh_size;
                 segData->owner_list_.push_back(elf_file);
                 segData->blocks.push_back(block);
             }
-            else if(curSecName==".bss"){//插入segBss
-                block=new Block();
+            else if (curSecName == ".bss")
+            { //插入segBss
+                block = new Block();
                 block->data_;
-                block->offset_=shdr->sh_offset;//文件内的偏移
-                block->size_=shdr->sh_size;
-                segBss->baseAddr_;//这三项
-                segBss->begin_;//不该
-                segBss->offset_;//现在填吧
-                segBss->size_+=shdr->sh_size;
+                block->offset_ = shdr->sh_offset; //文件内的偏移
+                block->size_ = shdr->sh_size;
+                segBss->baseAddr_; //这三项
+                segBss->begin_;    //不该
+                segBss->offset_;   //现在填吧
+                segBss->size_ += shdr->sh_size;
                 segBss->owner_list_.push_back(elf_file);
                 segBss->blocks.push_back(block);
             }
-            else{//其他节区不处理
+            else
+            { //其他节区不处理
                 ;
             }
         }
         //符号信息
-        for(int j=0;j<elf_file->sym_names_.size();j++){
-            curSymName=elf_file->sym_names_[j];
-            sym=elf_file->sym_tbl_[curSymName];
+        for (int j = 0; j < elf_file->sym_names_.size(); j++)
+        {
+            curSymName = elf_file->sym_names_[j];
+            sym = elf_file->sym_tbl_[curSymName];
 
-            symLink=new SymLink();
-            symLink->sym_name_=curSymName;
-            if(sym->st_shndx==SHN_UNDEF){//未定义的符号
-                symLink->prov_=NULL;
-                symLink->recv_=elf_file;//可以确定的是当前文件引用了该符号
+            symLink = new SymLink();
+            symLink->sym_name_ = curSymName;
+            if (sym->st_shndx == SHN_UNDEF)
+            { //未定义的符号
+                symLink->prov_ = NULL;
+                symLink->recv_ = elf_file; //可以确定的是当前文件引用了该符号
             }
-            else{//自己定义
-            //question:需要区分局部符号、全局符号、弱符号吗
-                symLink->prov_=elf_file;
-                symLink->recv_=elf_file;
+            else
+            { //自己定义
+                //question:需要区分局部符号、全局符号、弱符号吗
+                symLink->prov_ = elf_file;
+                symLink->recv_ = elf_file;
             }
             sym_links_.push_back(symLink);
         }
@@ -260,6 +268,35 @@ void Linker::relocate()
     }
 }
 
+#define APPEND_TO_TAB(targetStr, offset, des)  \
+    string temp = targetStr + to_string('\0'); \
+    elf_exe_.des += temp;                      \
+    shstrIndex[targetStr] = index;             \
+    index += offset
+
+#define INIT_SHDR(p_name, Sh_type, Sh_flags, Sh_addr, Sh_offset, Sh_size, Sh_link, Sh_info, Sh_addralign, Sh_entsize, Sh_name) \
+    p_name = new Elf32_Shdr();                                                                                                 \
+    p_name->sh_type = Sh_type;                                                                                                 \
+    p_name->sh_flags = Sh_flags;                                                                                               \
+    p_name->sh_addr = Sh_addr;                                                                                                 \
+    p_name->sh_offset = Sh_offset;                                                                                             \
+    p_name->sh_size = Sh_size;                                                                                                 \
+    p_name->sh_link = Sh_link;                                                                                                 \
+    p_name->sh_info = Sh_info;                                                                                                 \
+    p_name->sh_addralign = Sh_addralign;                                                                                       \
+    p_name->sh_entsize = Sh_entsize;                                                                                           \
+    p_name->sh_name = Sh_name
+
+#define INIT_PHDR(p_name, Ph_type, Ph_offset, Ph_vaddr, Ph_filesz, Ph_flags, Ph_memsz, Ph_align) \
+    p_name = new Elf32_Phdr();                                                                   \
+    p_name->p_type = Ph_type;                                                                    \
+    p_name->p_offset = Ph_offset;                                                                \
+    p_name->p_vaddr = Ph_vaddr;                                                                  \
+    p_name->p_filesz = Ph_filesz;                                                                \
+    p_name->p_flags = Ph_flags;                                                                  \
+    p_name->p_memsz = Ph_memsz;                                                                  \
+    p_name->p_align = Ph_align
+
 // 组装可执行文件
 void Linker::makeExec()
 {
@@ -278,17 +315,9 @@ void Linker::makeExec()
     elf_exe_.ehdr_.e_flags = 0;
     elf_exe_.ehdr_.e_ehsize = 52;
     unsigned int curOff = 52 + 32 * seg_names_.size();
-    Elf32_Shdr *pshdr = new Elf32_Shdr();
-    pshdr->sh_addr = 0;
-    pshdr->sh_addralign = 0;
-    pshdr->sh_entsize = 0;
-    pshdr->sh_flags = 0;
-    pshdr->sh_info = 0;
-    pshdr->sh_link = 0;
-    pshdr->sh_name = 0;
-    pshdr->sh_offset = 0;
-    pshdr->sh_size = 0;
-    pshdr->sh_type = 0;
+    Elf32_Shdr *pshdr = NULL;
+    Elf32_Phdr *pphdr = NULL;
+    INIT_SHDR(pshdr, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     elf_exe_.addShdr("", pshdr);
     int shstrtabSize = 26;
     for (auto segName : seg_names_)
@@ -301,14 +330,7 @@ void Linker::makeExec()
             flags = PF_W | PF_R;
         if (name == ".bss")
             filesz = 0;
-        Elf32_Phdr *pphdr = new Elf32_Phdr();
-        pphdr->p_type = PT_LOAD;
-        pphdr->p_offset = seg_lists_[name]->offset_;
-        pphdr->p_vaddr = seg_lists_[name]->baseAddr_;
-        pphdr->p_filesz = filesz;
-        pphdr->p_flags = flags;
-        pphdr->p_memsz = seg_lists_[name]->size_;
-        pphdr->p_align = MEM_ALIGN;
+        INIT_PHDR(pphdr, PT_LOAD, seg_lists_[name]->offset_, seg_lists_[name]->baseAddr_, filesz, flags, seg_lists_[name]->size_, MEM_ALIGN);
         elf_exe_.addPhdr(pphdr);
         curOff = seg_lists_[name]->offset_;
         Elf32_Word sh_type = SHT_PROGBITS;
@@ -321,19 +343,79 @@ void Linker::makeExec()
             sh_flags = SHF_ALLOC | SHF_EXECINSTR;
             sh_align = 16;
         }
-        
+        INIT_SHDR(pshdr, sh_type, sh_flags, seg_lists_[name]->baseAddr_, seg_lists_[name]->offset_, seg_lists_[name]->size_, SHN_UNDEF, 0, sh_align, 0, 0);
+        elf_exe_.addShdr(name, pshdr);
     }
-    //还没写完 有待补充……
+    elf_exe_.ehdr_.e_phoff = 52;
+    elf_exe_.ehdr_.e_phentsize = 32;
+    elf_exe_.ehdr_.e_phnum = seg_lists_.size();
+    int index = 0;
+    //shstrtab_和strtab_建议改为char*，string会将结束符'\0'当作正常字符处理
+    map<string, int> shstrIndex;
+    elf_exe_.shstrtab_ = "";
+    APPEND_TO_TAB(".shstrtab", 10, shstrtab_);
+    APPEND_TO_TAB(".symtab", 8, shstrtab_);
+    APPEND_TO_TAB(".strtab", 8, shstrtab_);
+    shstrIndex[""] = index - 1;
+    for (auto name : seg_names_)
+    {
+        shstrIndex[name] = index;
+        elf_exe_.shstrtab_ += name + to_string('\0');
+        index += name.size() + 1;
+    }
+    INIT_SHDR(pshdr, SHT_STRTAB, 0, 0, curOff, shstrtabSize, SHN_UNDEF, 0, 1, 0, 0);
+    elf_exe_.addShdr(".shstrtab", pshdr);
+    elf_exe_.ehdr_.e_shstrndx = elf_exe_.getSegIndex(".shstrtab");
+    curOff += shstrtabSize;
+    elf_exe_.ehdr_.e_shoff = curOff;
+    elf_exe_.ehdr_.e_shentsize = 40;
+    elf_exe_.ehdr_.e_shnum = 4 + seg_names_.size();
+    curOff += 40 * (4 + seg_names_.size());
+    int tempNum = (1 + sym_def_.size()) * 16;
+    INIT_SHDR(pshdr, SHT_SYMTAB, 0, 0, curOff, tempNum, 0, 0, 1, 16, 0);
+    elf_exe_.addShdr(".symtab", pshdr);
+    int strtabSize = 0;
+    elf_exe_.addSym("", NULL);
+    for (auto symlink : sym_def_)
+    {
+        string name = symlink->sym_name_;
+        strtabSize += name.size() + 1;
+        Elf32_Sym *Sym = symlink->prov_->sym_tbl_[name];
+        Sym->st_shndx = elf_exe_.getSegIndex(symlink->prov_->shdr_names_[Sym->st_shndx]);
+        elf_exe_.addSym(name, Sym);
+    }
+    elf_exe_.ehdr_.e_entry = elf_exe_.sym_tbl_["_start"]->st_value;
+    curOff += (1 + sym_def_.size()) * 16;
+    INIT_SHDR(pshdr, SHT_STRTAB, 0, 0, curOff, strtabSize, SHN_UNDEF, 0, 1, 0, 0);
+    elf_exe_.addShdr(".strtab", pshdr);
+    index = 0;
+    map<string, int> strIndex;
+    strIndex[""] = strtabSize - 1;
+    string str;
+    for (auto symlink : sym_def_)
+    {
+        strIndex[symlink->sym_name_] = index;
+        str += symlink->sym_name_ + to_string('\0');
+        index += symlink->sym_name_.size() + 1;
+    }
+    for (auto &item : elf_exe_.sym_tbl_)
+        item.second->st_name = strIndex[item.first];
+    for (auto &item : elf_exe_.shdr_tbl_)
+        item.second->sh_name = shstrIndex[item.first];
 }
+#undef APPEND_TO_TAB
+#undef INIT_SHDR
+#undef INIT_PHDR
 
 // 输出elf
-void Linker::writeExecFile(const char *dir) {
-// 打开文件
-    FILE* fp = fopen("elf.o", "wb");//这里先特殊规定一个名字
+void Linker::writeExecFile(const char *dir)
+{
+    // 打开文件
+    FILE *fp = fopen("elf.o", "wb"); //这里先特殊规定一个名字
     if (!fp)
     {
         perror("fopen");
-        cout << "write error" << ednl;
+        cout << "write error" << endl;
         exit(EXIT_FAILURE);
     }
     //输出文件头
