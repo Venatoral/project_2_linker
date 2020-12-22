@@ -6,11 +6,15 @@
 #include <vector>
 #include <fstream>
 #include <sstream>
-
+#include <unistd.h>
 using namespace std;
+// 可执行文件名称
 string output_file;
+// 汇编文件表
 vector<string> source_file_list;
+// 重定位文件表
 vector<string> object_file_list;
+// -c 选项
 bool compile_only = false;
 bool debug = true;
 
@@ -40,6 +44,7 @@ void parse_commnad(int argc, char* argv[]) {
     for(int i = 1; i < argc; i++) {
         // 命令参数 -c 只编译 -o 指定输出文件
         if(argv[i][0] == '-') {
+            // -c 仅编译
             if(argv[i][1] == 'c') {
                 if(debug) {
                     printf("Program: compile only\n");
@@ -66,13 +71,18 @@ void parse_commnad(int argc, char* argv[]) {
         // 处理文件名称，支持 .o 和 .s 文件
         string file_name = string(argv[i]);
         string suffix = get_suffix(file_name);
+        // 文件不存在
+        if (access(file_name.c_str(), F_OK) != 0) {
+            printf("\033[1;31m%s not exist!\033[0m\n", file_name.c_str());
+            exit(EXIT_FAILURE);
+        }
         if(suffix == ".o") {
             object_file_list.push_back(file_name);
         } else if (suffix == ".s") {
             source_file_list.push_back(file_name);
         } else {
-            printf("\033[;41mIllegal file: %s\n", file_name.c_str());
-            return;
+            printf("\033[1;31mIllegal file: %s\033[0m\n", file_name.c_str());
+            exit(EXIT_FAILURE);
         }
     }
 }
@@ -122,7 +132,7 @@ void link() {
 }
 int main(int argc, char* argv[]) {
     if(argc < 2) {
-        printf("Usage: ./prog [source files] [-c]|[-o output_file]");
+        printf("\033[1;31mUsage: ./prog [source files] [-c]|[-o output_file]\033[0m");
         exit(EXIT_FAILURE);
     }
     // 解析命令参数
