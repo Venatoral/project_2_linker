@@ -1,4 +1,6 @@
 #include "./inc/arm_linker.hpp"
+#include <iostream>
+#include <string.h>
 // 输出ElfFile信息到指定文件
 
 // 构造函数，从file_dir_读取文件，构造ElfFile对象
@@ -35,7 +37,7 @@ ElfFile::ElfFile(const char* file_dir_) {
     int shstrtaboff= shdr_list[shstrtabind]->sh_offset;
     fseek(fp, 0, SEEK_SET);//转移位置。因为offset与文件头相关
     char stringres[65536];//按最大的分配内存，之后继续还可用于获得节区名字
-    fread(stringres,shstrtabsize 1, fp + shstrtaboff);//读入数据
+    fread(stringres,shstrtabsize, 1, fp + shstrtaboff);//读入数据
     this->shstrtab_ = stringres;//shstrtab读取并转为应有的格式
 
     char stringres1[65536];//按最大的分配内存，这个stringres1是保存strtab数据所用的。之后继续还可用于获得符号名字
@@ -48,7 +50,7 @@ ElfFile::ElfFile(const char* file_dir_) {
                 int strtabsize = shdr_list[i]->sh_size;
                 int strtaboff = shdr_list[i]->sh_offset;
                 
-                fread(stringres1, strtabsize 1, fp + strtaboff);//读入数据
+                fread(stringres1, strtabsize, 1, fp + strtaboff);//读入数据
                 this->strtab_ = stringres1;//strtab读取并转为应有的格式
 
             }
@@ -57,23 +59,21 @@ ElfFile::ElfFile(const char* file_dir_) {
     //接下来处理section头和section的名字。这个需要直接用到之前的section头列表
     for (int i = 0; i < this->ehdr_.e_shnum; i++)
     {
-        Elf32_Sym* sm = shdr_list[i];
-        int need = sm->st_name;
+        Elf32_Shdr* sm = shdr_list[i];
+        int need = sm->sh_name;
         int head = 0;
         int end = 0;
-        char dest[15] = { "" };
+        char dest[15] = {0};
         int count = 0;
-        for (int k = 0; k <= 65535; k++) {//找到符号的位置，用头尾做处理
+        for (int k = 0; k <= 65535; k++) {
+            //找到符号的位置，用头尾做处理
             if (count < need - 1 && stringres[k] != '\0') {
                 head++;
-
             }
             if (count < need - 1 && stringres[k] == '\0') {
                 count++;
                 end = head + 1;//给end赋予初值
-                head=head+2;//这样的话就可以令需要得到的字段从\0后开始
-                
-                
+                head=head+2;//这样的话就可以令需要得到的字段从\0后开始      
             }
             if (count == need - 1 && stringres[k] != '\0') {
                 end++;
@@ -83,8 +83,9 @@ ElfFile::ElfFile(const char* file_dir_) {
                 break;
             }
         }
-
-        char res[end-head+1] = { "" };//真正得到节区名
+        //真正得到节区名
+        // char res[end - head + 1] = {0};
+        char* res = (char*)calloc(1, end - head + 1);
         for (int m = 0; m < end - head + 1; m++) {
             res[m] = stringres[head];
             head++;
@@ -121,7 +122,7 @@ ElfFile::ElfFile(const char* file_dir_) {
 
 
                 this->sym_names_.push_back(na);//符号名字表插入
-                this->sym_tbl_.insert(pair<string, Elf32_Sym*>(na, l));//符号表
+                this->sym_tbl_.insert(pair<string, Elf32_Sym*>(na, sy));//符号表
 
             }
         }

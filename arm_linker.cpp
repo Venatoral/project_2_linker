@@ -216,7 +216,7 @@ void Linker::allocAddr()
 
     for (int i = 0; i < seg_names_.size(); ++i) //按照类型分配地址，不紧邻.data与.bss段
     {
-        seg_list[seg_names_[i]]->allocAddr(seg_names_[i], curAddr, curOff); //自动分配
+        seg_lists_[seg_names_[i]]->allocAddr(seg_names_[i], curAddr, curOff); //自动分配
     }
 }
 
@@ -238,7 +238,7 @@ void Linker::parseSym()
         Elf32_Sym *def_sym = s->prov_->sym_tbl_[s->sym_name_];
         Elf32_Sym *ref_sym = s->recv_->sym_tbl_[s->sym_name_];
         ref_sym->st_value = def_sym->st_value;
-        printf("UND name: %s, addr: %8x\n", s->sym_name_, ref_sym->st_value);
+        printf("UND name: %s, addr: %8x\n", s->sym_name_.c_str(), ref_sym->st_value);
     }
 }
 
@@ -269,9 +269,8 @@ void Linker::relocate()
 }
 
 #define APPEND_TO_TAB(targetStr, offset, des)  \
-    string temp = targetStr + to_string('\0'); \
-    elf_exe_.des += temp;                      \
-    shstrIndex[targetStr] = index;             \
+    elf_exe_.des += targetStr + to_string('\0'); \
+    shstrIndex[targetStr] = index;               \
     index += offset
 
 #define INIT_SHDR(p_name, Sh_type, Sh_flags, Sh_addr, Sh_offset, Sh_size, Sh_link, Sh_info, Sh_addralign, Sh_entsize, Sh_name) \
@@ -415,7 +414,6 @@ void Linker::writeExecFile(const char *dir)
     if (!fp)
     {
         perror("fopen");
-        cout << "write error" << endl;
         exit(EXIT_FAILURE);
     }
     //输出文件头
@@ -425,7 +423,7 @@ void Linker::writeExecFile(const char *dir)
 
     map<string, Elf32_Shdr *>::iterator hiter;
     hiter = this->elf_exe_.shdr_tbl_.begin();
-    while (hiter != this->shdr_tbl_.end())
+    while (hiter != this->elf_exe_.shdr_tbl_.end())
     {
         Elf32_Shdr *shdr = new Elf32_Shdr();
         shdr = hiter->second;
@@ -469,7 +467,7 @@ void Linker::writeExecFile(const char *dir)
     for (int i = 0; i < f.size(); i++)
     {
         Elf32_Rel *r = new Elf32_Rel();
-        r = f[i];
+        r = f[i]->rel_;
         fwrite(r, sizeof(Elf32_Rel), 1, fp);
     }
     fclose(fp);
@@ -477,7 +475,7 @@ void Linker::writeExecFile(const char *dir)
 
 // 链接（其实就是顺序调用了上述过程)
 // dir : 输出可执行文件的地址
-bool Linker::link(const char *dir)
+void Linker::link(const char *dir)
 {
     // 收集信息
     collectInfo();
@@ -500,4 +498,8 @@ Linker::Linker() {
     for(int i = 0; i < this->seg_names_.size(); i++) {
         this->seg_lists_[this->seg_names_[i]] = new SegList();
     }
+}
+
+Linker::~Linker() {
+    ;
 }

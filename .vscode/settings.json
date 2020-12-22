@@ -62,6 +62,8 @@
         "utility": "cpp",
         "vector": "cpp",
         "*.tcc": "cpp",
-        "iostream": "cpp"
+        "iostream": "cpp",
+        "deque": "cpp",
+        "fstream": "cpp"
     }
 }

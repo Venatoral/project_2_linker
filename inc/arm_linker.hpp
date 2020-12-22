@@ -1,11 +1,32 @@
 #ifndef INC_ARM_LINKER_HPP
 #define INC_ARM_LINKER_HPP
-#include "./elf_struct.h"
+#include "elf_struct.h"
 #include <map>
 #include <vector>
 #include <string>
 using namespace std;
 
+
+// 重定位信息结构
+struct RelItem {
+public:
+    // 重定位段名称
+    string seg_name_;
+    // 重定位符号名称
+    string rel_name_;
+    Elf32_Rel *rel_;
+};
+
+// 数据块结构
+struct Block {
+public:
+    // 字节数据
+    char *data_;
+    // 偏移量
+    unsigned int offset_;
+    // 块大小
+    unsigned int size_;
+};
 /**Tasks：
 * 1. SegList::allocAddr + Linker::allocAddr    分配地址 yrc
 * 2. SegList::relocAddr + Linker::relocate     重定位 tlx
@@ -35,8 +56,8 @@ public:
     vector<RelItem *> rel_tbl_;
     string shstrtab_;
     string strtab_;
-
 public:
+    ElfFile(){};
     ElfFile(const char *file_dir_);
     void getData(char *buf, Elf32_Off offset, Elf32_Word size); //读取数据
     int getSegIndex(string seg_name);                           //获取指定段名在段表下标
@@ -47,26 +68,6 @@ public:
     ~ElfFile();
 };
 
-// 重定位信息结构
-struct RelItem {
-public:
-    // 重定位段名称
-    string seg_name_;
-    // 重定位符号名称
-    string rel_name_;
-    Elf32_Rel *rel_;
-};
-
-// 数据块结构
-struct Block {
-public:
-    // 字节数据
-    char *data_;
-    // 偏移量
-    unsigned int offset_;
-    // 块大小
-    unsigned int size_;
-};
 
 // 段列表结构
 class SegList {
@@ -124,7 +125,7 @@ public:
     void relocate();                     //符号重定位，根据所有目标文件的重定位项修正符号地址
     void makeExec();                     //组装可执行文件
     void writeExecFile(const char *dir); //输出elf
-    bool link(const char *dir);          //链接
+    void link(const char *dir);          //链接
     ~Linker();
 };
 #endif
