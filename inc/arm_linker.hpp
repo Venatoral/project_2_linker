@@ -15,6 +15,13 @@ public:
     // 重定位符号名称
     string rel_name_;
     Elf32_Rel *rel_;
+public:
+    RelItem(){};
+    RelItem(string seg_name, string rel_name, Elf32_Rel* rel) {
+        this->seg_name_ = seg_name;
+        this->rel_name_ = rel_name;
+        this->rel_ = rel;
+    }
 };
 
 // 数据块结构
@@ -54,8 +61,8 @@ public:
     vector<string> sym_names_;
     // 重定位
     vector<RelItem *> rel_tbl_;
-    string shstrtab_;
-    string strtab_;
+    char* shstrtab_;
+    char* strtab_;
 public:
     ElfFile(){};
     ElfFile(const char *file_dir_);

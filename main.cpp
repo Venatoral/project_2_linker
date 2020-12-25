@@ -98,9 +98,13 @@ string file_to_string(const char* file_name) {
 }
 // 将汇编源文件编译成二进制文件
 void compile() {
+    if(source_file_list.size() == 0) {
+        return;
+    }
     printf("开始进行编译\n");
     int source_file_num = source_file_list.size();
     for(int i = 0; i < source_file_num; i ++) {
+        printf("%d. 编译文件: %s\n", i, source_file_list[i].c_str());
         ARM_analyze arm_expert;
         // 读取文件
         string content = file_to_string(source_file_list[i].c_str());
@@ -119,7 +123,10 @@ void compile() {
 }
 // 链接
 void link() {
-    printf("开始进行链接操作\n");
+    if(object_file_list.size() == 0) {
+        return;
+    }
+    printf("************开始进行链接操作************\n");
     int object_file_num = object_file_list.size();
     Linker link_master;
     for(int i = 0; i < object_file_num; i++) {
@@ -128,7 +135,7 @@ void link() {
     }
     // 产生可执行文件 output_file
     link_master.link(output_file.c_str());
-    printf("链接结束\n");
+    printf("************链接结束************\n");
 }
 int main(int argc, char* argv[]) {
     if(argc < 2) {
