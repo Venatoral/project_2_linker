@@ -9,6 +9,10 @@
 #include "./inc/gen_reloc.hpp"
 using namespace std;
 
+int round(int val, int align) {
+    int align_val = val + (align - val % align) % align;
+    return align_val;
+}
 //lt call all generating relocateable file's function
 void RelocatableFile::genRelocFile() {
     genSectionNote(); //生成一些无关紧要or内容固定的节区or第0号节区
@@ -99,7 +103,7 @@ void RelocatableFile::genSectionData()
         else if (ARM_analyze::data_element_list[i]->op_name == "space")
             data->size += ARM_analyze::data_element_list[i]->value;
     }
-
+    data->size = round(data->size, 4);
     data->content = (char *)malloc(data->size);
 
     int cur = 0;
@@ -241,7 +245,8 @@ void RelocatableFile::genSectionText()
             offset += sizeof(bytes);
         }
     }
-    text->size=arm_machine.size();
+    text->size = arm_machine.size();
+    text->size = round(text->size, 4);
     section_info_list.push_back(text);
 }
 
@@ -760,20 +765,23 @@ void RelocatableFile::genFile()
     // 输出文件头
     fwrite(&this->elf_header, sizeof(Elf32_Ehdr), 1, fp);
     // 输出节区头
-    for (int i = 0; i < this->shdr_list.size(); i++)
-    {
+    fseek(fp, this->elf_header.e_shoff, 0);
+    for (int i = 0; i < this->shdr_list.size(); i++) {
         fwrite(this->shdr_list[i], sizeof(Elf32_Shdr), 1, fp);
     }
     // 输出节区
-    for (int i = 0; i < this->section_info_list.size(); i++)
-    {
-        int size = this->section_info_list[i]->size;
+    for (int i = 0; i < this->section_info_list.size(); i++) {
+        int index = this->section_info_list[i]->no;
+        int off = this->shdr_list[index]->sh_offset;
+        int size = this->section_info_list[index]->size;
+        printf("%d\n", size);
         // 是否已经 align过 ?
         /**
          * Todo 如果没有align,则加上
          *  size = round(size, BASE);
          * 其中一般Section中BASE = 4, 而.text段为16
          * */
+        fseek(fp, off, 0);
         fwrite(this->section_info_list[i]->content, size, 1, fp);
     }
     fclose(fp);
