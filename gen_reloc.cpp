@@ -683,17 +683,19 @@ void RelocatableFile::genShdrList()
     //output: shdr_list
 
     Elf32_Off cur_sec_off = sizeof(Elf32_Shdr) * (cur_sec_no - 1) + sizeof(Elf32_Ehdr);
+    int name_off=0;
 
     for (int i = 0; i < cur_sec_no; i++)
     {
         Elf32_Shdr *newShdr = new Elf32_Shdr();
-        newShdr->sh_name = section_info_list[i]->no;
+        newShdr->sh_name = nameOff;
         newShdr->sh_type = getShType(section_info_list[i]->name);
         newShdr->sh_flags = getShFlags(section_info_list[i]->name);
         newShdr->sh_addr = 0; //现在还没有
 
         newShdr->sh_offset = cur_sec_off;
         cur_sec_off += section_info_list[i]->size;
+        name_off+=sizeof(section_info_list[i]->name)+1;
 
         newShdr->sh_size = section_info_list[i]->size;
         newShdr->sh_link = getShLink(section_info_list[i]->name);
@@ -719,23 +721,23 @@ void RelocatableFile::genElfHeader()
     elf_header.e_ident[EI_MAG3] = ELFMAG3;
     elf_header.e_ident[EI_CLASS] = ELFCLASS32;
     elf_header.e_ident[EI_DATA] = ELFDATA2LSB;
-    elf_header.e_ident[EI_VERSION] = EI_VERSION;
+    elf_header.e_ident[EI_VERSION] = EV_CURRENT;
 
-    elf_header.e_type = ET_REL;
+    elf_header.e_type = ET_EXEC;//reloc->exec
     elf_header.e_machine = 40; //ARM
     elf_header.e_version = EV_CURRENT;
     elf_header.e_entry = 0;                  //现在没有程序入口
     elf_header.e_phoff = 0;                  //现在没有程序头部表格
     elf_header.e_shoff = sizeof(Elf32_Ehdr); //紧接着elf头
-    elf_header.e_flags = 0x5000000;          //Version5 EABI
+    elf_header.e_flags = 0x05000400;          //Version5 EABI
     elf_header.e_ehsize = sizeof(Elf32_Ehdr);
 
     elf_header.e_phentsize=0; //现在没有程序头部表格
     elf_header.e_phnum=0;     //现在没有程序头部表格
 
     elf_header.e_shentsize = sizeof(Elf32_Shdr);
-    elf_header.e_shnum = cur_sec_no - 1;
-    elf_header.e_shstrndx = cur_sec_no - 1; //由于最后压入节区名字表，故等于cur_sec_no-1
+    elf_header.e_shnum = section_info_list.size();
+    elf_header.e_shstrndx = section_info_list.size() - 1; //由于最后压入节区名字表，故等于cur_sec_no-1
 }
 
 void RelocatableFile::genFile()
