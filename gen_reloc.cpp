@@ -34,9 +34,7 @@ void RelocatableFile::genRelocFile() {
     cout<<"sym"<<endl;
     //lt
     genSectionShstrtab(); //生成特殊节区-节区名字表
-    cout<<"1"<<endl;
     genShdrList();        //生成节区头部列表
-    cout<<"2"<<endl;
     genElfHeader();       //生成elf文件头
     cout<<"sh"<<endl;
     //ml
@@ -604,13 +602,13 @@ void RelocatableFile::genSectionSymtab()
     {
         ++curIndex;
         temp.st_info = symbol->type;
+        temp.st_name = offset;
         if (symbol->name.length() != 0)
-        {
-            temp.st_name = offset;
+        {   
             for (auto ch : symbol->name)
                 strtabContent[offset++] = ch;
-            strtabContent[offset++] = '\0';
         }
+        strtabContent[offset++] = '\0';
         temp.st_value = symbol->value;
         temp.st_size = symbol->name.length();
         temp.st_other = 0;
@@ -687,10 +685,10 @@ void RelocatableFile::genShdrList()
     //input: section_info_list
     //output: shdr_list
 
-    Elf32_Off cur_sec_off = sizeof(Elf32_Shdr) * (cur_sec_no - 1) + sizeof(Elf32_Ehdr);
-    int name_off=0;
+    Elf32_Off cur_sec_off = sizeof(Elf32_Shdr) * section_info_list.size()  + sizeof(Elf32_Ehdr);
+    Elf32_Off name_off=0;
 
-    for (int i = 0; i < cur_sec_no; i++)
+    for (int i = 0; i < section_info_list.size(); i++)
     {
         Elf32_Shdr *newShdr = new Elf32_Shdr();
         newShdr->sh_name = name_off;
@@ -700,7 +698,7 @@ void RelocatableFile::genShdrList()
 
         newShdr->sh_offset = cur_sec_off;
         cur_sec_off += section_info_list[i]->size;
-        name_off+=sizeof(section_info_list[i]->name)+1;
+        name_off+=section_info_list[i]->name.length()+1;
 
         newShdr->sh_size = section_info_list[i]->size;
         newShdr->sh_link = getShLink(section_info_list[i]->name);
