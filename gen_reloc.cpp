@@ -688,7 +688,7 @@ void RelocatableFile::genShdrList()
     for (int i = 0; i < cur_sec_no; i++)
     {
         Elf32_Shdr *newShdr = new Elf32_Shdr();
-        newShdr->sh_name = nameOff;
+        newShdr->sh_name = name_off;
         newShdr->sh_type = getShType(section_info_list[i]->name);
         newShdr->sh_flags = getShFlags(section_info_list[i]->name);
         newShdr->sh_addr = 0; //现在还没有
