@@ -600,11 +600,10 @@ void RelocatableFile::genSectionSymtab()
     int curIndex = -1;
     for (auto symbol : ARM_analyze::symbol_list)
     {
-        ++curIndex;
-        temp.st_info = symbol->type;
+        ++curIndex; 
+        temp.st_info = ELF32_ST_INFO(symbol->bind, symbol->type);
         temp.st_name = offset;
-        if (symbol->name.length() != 0)
-        {   
+        if (symbol->name.length() != 0) {   
             for (auto ch : symbol->name)
                 strtabContent[offset++] = ch;
         }
@@ -614,8 +613,9 @@ void RelocatableFile::genSectionSymtab()
         temp.st_other = 0;
         //Question: st_shndx如何从symbol_list获取？
         content->emplace_back(temp); //push_back是使用值传递，不需要重新声明temp
-        if (symbol->bind == LOCAL)
+        if (symbol->bind == LOCAL) {
             symtab_local_last_idx = curIndex;
+        }
     }
     strtabContentSize = offset;
     symtab->size = (Elf32_Word)(content->size() * sizeof(Elf32_Word));

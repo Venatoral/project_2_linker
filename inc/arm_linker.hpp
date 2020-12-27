@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <unordered_map>
 using namespace std;
 
 
@@ -43,6 +44,8 @@ public:
 * 6. Linker::writeExec + ElfFile               构造函数ElfFile读取Elf文件 + 写可执行文件 nzb
 **/
 
+#define ELF_WRITE_HEADER    0x01
+#define ELF_WRITE_SECTIONS  0x10
 // Elf文件类
 class ElfFile {
 public:
@@ -52,17 +55,20 @@ public:
     // 程序头
     vector<Elf32_Phdr *> phdr_tbl_;
     // section头
-    map<string, Elf32_Shdr *> shdr_tbl_;
+    unordered_map<string, Elf32_Shdr *> shdr_tbl_;
     // section名顺序
     vector<string> shdr_names_;
     // 符号表
-    map<string, Elf32_Sym *> sym_tbl_;
+    unordered_map<string, Elf32_Sym *> sym_tbl_;
     // 符号名称
     vector<string> sym_names_;
     // 重定位
     vector<RelItem *> rel_tbl_;
     char* shstrtab_;
     char* strtab_;
+    // 段表字符串表长
+    unsigned int shstrtabSize_;
+    unsigned int strtabSize_;
 public:
     ElfFile(){};
     ElfFile(const char *file_dir_);
@@ -70,8 +76,14 @@ public:
     int getSegIndex(string seg_name);                           //获取指定段名在段表下标
     int getSymIndex(string sym_name);                           //获取指定符号名在符号表下标
     void addPhdr(Elf32_Phdr *new_phdr);                         //添加程序头表项
+    void addPhdr(Elf32_Word type,Elf32_Off off,Elf32_Addr vaddr,Elf32_Word filesz,
+		Elf32_Word memsz,Elf32_Word flags,Elf32_Word align);
     void addShdr(string shdr_name, Elf32_Shdr *new_shdr);       //添加一个段表项
+    void addShdr(string sh_name,Elf32_Word sh_type,Elf32_Word sh_flags,Elf32_Addr sh_addr,Elf32_Off sh_offset,
+			Elf32_Word sh_size,Elf32_Word sh_link,Elf32_Word sh_info,Elf32_Word sh_addralign,
+			Elf32_Word sh_entsize);
     void addSym(string st_name, Elf32_Sym *);                   //添加一个符号表项
+    void writeElf(const char*dir,int flag);
     ~ElfFile();
 };
 
@@ -113,15 +125,10 @@ class Linker {
     ElfFile elf_exe_;          //链接后的输出文件
     ElfFile *start_owner_;     //拥有全局符号START/_start的文件
 
-    // 符号引用信息
-    vector<SymLink *> sym_ref;
-    // 符号定义信息
-    vector<SymLink *> sym_def;
-
 public:
     vector<ElfFile *> elfs;            //所有目标文件对象
-    map<string, SegList *> seg_lists_; //所有合并段表序列
-    vector<SymLink *> sym_links_;      //所有符号引用信息，符号解析前存储未定义的符号prov字段为NULL
+    unordered_map<string, SegList *> seg_lists_; //所有合并段表序列
+    vector<SymLink *> sym_ref_;         //所有符号引用信息，符号解析前存储未定义的符号prov字段为NULL
     vector<SymLink *> sym_def_;        //所有符号定义信息recv字段NULL时标示该符号没有被任何文件引用，否则指向本身（同prov）
 public:
     Linker();
