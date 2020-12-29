@@ -25,9 +25,11 @@ void SegList::allocAddr(string name, unsigned int &base, unsigned int &off)
 {
     begin_ = off; //记录对齐前偏移
 
-    //虚拟地址对齐，让所有的段按照4k字节对齐
-    if (name != ".bss") //.bss段直接紧跟上一个段，一般是.data,因此定义处理段时需要将.data和.bss放在最后
+    // 虚拟地址对齐，让所有的段按照4k字节对齐
+    // .bss段直接紧跟上一个段，一般是.data,因此定义处理段时需要将.data和.bss放在最后
+    if (name != ".bss") {
         base += (MEM_ALIGN - base % MEM_ALIGN) % MEM_ALIGN;
+    }
     int align = DESC_ALIGN;
 	if(name == ".text") {
 		align = 8;
@@ -49,8 +51,7 @@ void SegList::allocAddr(string name, unsigned int &base, unsigned int &off)
 
         Elf32_Shdr *seg = owner_list_[i]->shdr_tbl_[name];
         //读取需要合并段的数据
-        if (name != ".bss")
-        {
+        if (name != ".bss") {
             char *buf = new char[seg->sh_size];                         //申请数据缓存
             owner_list_[i]->getData(buf, seg->sh_offset, seg->sh_size); //读取数据
 
@@ -65,10 +66,12 @@ void SegList::allocAddr(string name, unsigned int &base, unsigned int &off)
         seg->sh_addr = base + size_; //修改每个文件的段虚拟，为了方便计算符号或者重定位的虚址，不需要保存合并后文件偏移
         size_ += seg->sh_size;       //累加段大小
     }
-
-    base += size_;      //累加基址
-    if (name != ".bss") //.bss段不修改偏移
+    // 累加基址
+    base += size_;
+     // .bss段不修改偏移 
+    if (name != ".bss") {
         off += size_;
+    }
 }
 
 /*
@@ -88,7 +91,7 @@ void SegList::relocAddr(unsigned int rel_addr, unsigned char type, unsigned int 
     }
 
     int *pdata = (int*)(blocks[block_idx]->data_ + off - blocks[block_idx]->offset_);
-    if (type == R_386_JMP_SLOT) { 
+    if (type == R_386_JMP_SLOT) {
         // R_386_JMP_SLOT, 需要注意这个地方只需要修改跳转指令的后3个字节
         int delta = sym_addr - rel_addr - 4; // 跳转的距离
         pdata++;
@@ -100,13 +103,15 @@ void SegList::relocAddr(unsigned int rel_addr, unsigned char type, unsigned int 
     } else if (type == R_386_GLOB_DAT) {
         // R_386_GLOB_DAT
         *(unsigned int *)pdata = sym_addr;
-    } else if (type==R_386_32) {
+    } else if (type == R_386_32) {
         // 绝对地址修正 
 		*pdata = sym_addr;
-	} else if(type==R_386_PC32) {
+	} else if(type == R_386_PC32) {
         // 相对地之修正 
 		*pdata = sym_addr - rel_addr + (*pdata);
-	}
+	} else if (type == R_ARM_ABS12) {
+
+    }
 }
 
 /**

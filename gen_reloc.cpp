@@ -555,12 +555,12 @@ void RelocatableFile::genSectionReloc()
 
         Elf32_Rel *r = new Elf32_Rel();
         int j = 0;
-        for (; j < ARM_analyze::symbol_list.size(); j++)
-        { //找到符号表索引，为确定r_info作准备。
+        // 找到符号表索引，为确定r_info作准备。
+        for (; j < ARM_analyze::symbol_list.size(); j++) {
             if (ARM_analyze::reloc_symbol_list[i]->name == ARM_analyze::symbol_list[j]->name)
                 break;
         }
-        r->r_info = j << 8; //ELF32_R_SYM(i)的逆过程
+        r->r_info = j << 8; // ELF32_R_SYM(i)的逆过程
         r->r_offset = ARM_analyze::reloc_symbol_list[i]->value;
 
         if (ARM_analyze::reloc_symbol_list[i]->type == 0)
@@ -594,31 +594,35 @@ void RelocatableFile::genSectionSymtab()
     SectionInfo *symtab = new SectionInfo();
     symtab->no = cur_sec_no++;
     symtab->name = ".symtab";
-    vector<Elf32_Sym> *content = new vector<Elf32_Sym>();
+    int sym_num = ARM_analyze::symbol_list.size();
+    // 具体内容
+    Elf32_Sym* content = new Elf32_Sym[sym_num];
     Elf32_Sym temp;
-    int offset = 0;
-    int curIndex = -1;
-    for (auto symbol : ARM_analyze::symbol_list)
-    {
-        ++curIndex; 
+    // .strtab
+    strtabContent[0] = '\0';
+    int offset = 1;
+    int curIndex = 0;
+    for (auto symbol : ARM_analyze::symbol_list) {
         temp.st_info = ELF32_ST_INFO(symbol->bind, symbol->type);
         temp.st_name = offset;
         if (symbol->name.length() != 0) {   
-            for (auto ch : symbol->name)
+            for (auto ch : symbol->name) {
                 strtabContent[offset++] = ch;
+            }
         }
         strtabContent[offset++] = '\0';
         temp.st_value = symbol->value;
         temp.st_size = symbol->name.length();
         temp.st_other = 0;
         //Question: st_shndx如何从symbol_list获取？
-        content->emplace_back(temp); //push_back是使用值传递，不需要重新声明temp
+        content[curIndex] = temp;
         if (symbol->bind == LOCAL) {
             symtab_local_last_idx = curIndex;
         }
+        curIndex ++;
     }
     strtabContentSize = offset;
-    symtab->size = (Elf32_Word)(content->size() * sizeof(Elf32_Word));
+    symtab->size = (Elf32_Word)(sym_num * sizeof(Elf32_Sym));
     symtab->content = (char *)content;
     section_info_list.emplace_back(symtab);
 }
@@ -727,7 +731,7 @@ void RelocatableFile::genElfHeader()
     elf_header.e_ident[EI_VERSION] = EV_CURRENT;
 
     elf_header.e_type = ET_EXEC;//reloc->exec
-    elf_header.e_machine = 40; //ARM
+    elf_header.e_machine = EM_ARM; //ARM
     elf_header.e_version = EV_CURRENT;
     elf_header.e_entry = 0;                  //现在没有程序入口
     elf_header.e_phoff = 0;                  //现在没有程序头部表格
