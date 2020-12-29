@@ -249,10 +249,10 @@ void Linker::makeExec()
     p_id++;
     *p_id = 0;
 	this->elf_exe_.ehdr_.e_type = ET_EXEC;
-	this->elf_exe_.ehdr_.e_machine = EM_386;
+	this->elf_exe_.ehdr_.e_machine = EM_ARM;
 	this->elf_exe_.ehdr_.e_version = EV_CURRENT;
-	this->elf_exe_.ehdr_.e_flags = 0;
-	this->elf_exe_.ehdr_.e_ehsize=52;
+	this->elf_exe_.ehdr_.e_flags = 0x05000400;
+	this->elf_exe_.ehdr_.e_ehsize = EHDR_SIZE;
 	// 数据位置指针
 	unsigned int curOff = EHDR_SIZE + PHDR_SIZE * this->seg_names_.size();
 	this->elf_exe_.addShdr("", 0, 0, 0, 0, 0, 0, 0, 0, 0);//空段表项

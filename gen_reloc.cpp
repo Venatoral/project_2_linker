@@ -585,8 +585,7 @@ void RelocatableFile::genSectionReloc()
 #define LABEL 2
 #define LOCAL 1
 #define GLOBAL 0
-void RelocatableFile::genSectionSymtab()
-{
+void RelocatableFile::genSectionSymtab() {
     //生成特殊节区-符号表
     //input: symbol_list
     //output: section_info_list.push_back(xxx);
@@ -733,14 +732,14 @@ void RelocatableFile::genElfHeader()
     elf_header.e_type = ET_EXEC;//reloc->exec
     elf_header.e_machine = EM_ARM; //ARM
     elf_header.e_version = EV_CURRENT;
-    elf_header.e_entry = 0;                  //现在没有程序入口
-    elf_header.e_phoff = 0;                  //现在没有程序头部表格
-    elf_header.e_shoff = sizeof(Elf32_Ehdr); //紧接着elf头
-    elf_header.e_flags = 0x05000400;          //Version5 EABI
+    elf_header.e_entry = 0;                  // 现在没有程序入口
+    elf_header.e_phoff = 0;                  // 现在没有程序头部表格
+    elf_header.e_shoff = sizeof(Elf32_Ehdr); // 紧接着elf头
+    elf_header.e_flags = 0x05000400;          // Version5 EABI
     elf_header.e_ehsize = sizeof(Elf32_Ehdr);
 
-    elf_header.e_phentsize=0; //现在没有程序头部表格
-    elf_header.e_phnum=0;     //现在没有程序头部表格
+    elf_header.e_phentsize = 0; //现在没有程序头部表格
+    elf_header.e_phnum = 0;     //现在没有程序头部表格
 
     elf_header.e_shentsize = sizeof(Elf32_Shdr);
     elf_header.e_shnum = section_info_list.size();
