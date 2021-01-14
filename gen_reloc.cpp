@@ -625,8 +625,8 @@ void RelocatableFile::genSectionSymtab() {
     symtab->content = (char *)content;
     section_info_list.emplace_back(symtab);
 }
-#define LOCAL 1
-#define GLOBAL 0
+#undef LOCAL 
+#undef GLOBAL 
 #undef NOTYPE
 #undef FUNCTION
 #undef GLOBAL_VAR
